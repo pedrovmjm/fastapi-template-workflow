@@ -119,6 +119,7 @@ O **Orquestrador** (`orchestrator-sdlc`) roteia cada feature para:
 - **standard-docstrings** — Padrão de docstrings em Python
 - **standard-middleware** — Padrão de middlewares
 - **domain** — Padrões de modelagem de domínio
+- **conversation-conventions** — Atualiza skills, referências ou convenções a partir de feedback da conversa
 
 ### 🚧 Em Desenvolvimento
 
