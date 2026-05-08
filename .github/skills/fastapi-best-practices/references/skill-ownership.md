@@ -11,6 +11,7 @@ Use este mapa para evitar sobreposição entre skills.
 | Contrato público de erro | `standard-errors` | Envelope `errors` com `code`, `title` e `message`. |
 | Fronteiras entre camadas | `domain` | Decide ownership quando há dúvida. |
 | Services e lógica de negócio | `standard-services` | Manipula dados, orquestra repositories e não conhece HTTP. |
+| Interfaces por tipo de processamento | `processing-interfaces` | Define contracts, registries e factories para múltiplas estratégias ou formatos. |
 | Repositories e execução técnica | `standard-repositories` | Executa query, blob e chamadas técnicas já configuradas, sem regra de negócio. |
 | Integrações externas | `standard-integrations` | Define clients externos, HTTP async, timeout, retry, circuit breaker, webhooks e mapeamento de erro externo. |
 | Persistência SQL/NoSQL | `standard-database` | Define lifecycle de banco, sessão, transação, migrations e índices. |

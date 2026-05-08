@@ -18,6 +18,7 @@ Ela funciona como uma skill de decisão arquitetural: identifica qual camada dev
 | Endpoints, routers, status codes, query params e documentação HTTP | `standard-endpoints` | Mantém rotas finas e delega regra de negócio para services. |
 | Modelos Pydantic, contratos `data`, wrappers, envelopes, paginação e validação de campos | `standard-data-models` | Define contratos públicos de entrada e saída, sem regra de negócio. |
 | Services, casos de uso, manipulação de dados e orquestração assíncrona | `standard-services` | Centraliza regra de negócio e coordena repositories, providers e integrações. |
+| Interfaces por tipo de processamento, estratégias, registry e factory | `processing-interfaces` | Define contratos plugáveis para múltiplas implementações sem acoplar endpoints ou services a detalhes técnicos. |
 | Repositories, queries, blobs, clients configurados e chamadas OpenAI | `standard-repositories` | Executa acesso técnico sem decidir regra de negócio. |
 | Persistência SQL/NoSQL, sessões, transações, migrations e índices | `standard-database` | Define infraestrutura de dados consumida por repositories. |
 | Settings, `values_domains`, providers, singletons e leitura de ambiente | `standard-configs` | Fornece configuração e clients sem regra de negócio. |
