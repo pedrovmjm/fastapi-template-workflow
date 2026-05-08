@@ -1,317 +1,294 @@
 # FastAPI Template Workflow
 
-> Um repositório template profissional para projetos FastAPI com boas práticas integradas, agents especializados e skills reutilizáveis. **Pronto para bootstrapping** de aplicações do zero com qualidade enterprise.
+Template para padronizar workflow de desenvolvimento em projetos FastAPI, combinando **Spec-Driven Development (SDD)**, agents especializados, skills reutilizaveis e um `bootstrap.py` para iniciar uma aplicacao com uma base escalavel.
 
-## 🚀 O Que É
+A ideia do repositorio e servir como ponto de partida para times que querem criar APIs FastAPI com estrutura consistente, boas praticas desde o primeiro commit e rastreabilidade entre especificacao, implementacao, testes e revisoes.
 
-Este é um **template corporativo** que fornece:
+## O Que Este Projeto Entrega
 
-- ✅ **Workflow SDD** (Spec-Driven Development) — metodologia 4 fases para planejar e implementar features com precisão
-- ✅ **Agents especializados** — orquestrador + especialistas para revisão de specs, arquitetura, testes e segurança
-- ✅ **Skills reutilizáveis** — padrões de código, logs, traces, endpoints, middlewares e docstrings
-- ✅ **Bootstrap automático** — scaffolding de projetos FastAPI do zero com estrutura pronta
-- ✅ **Rastreabilidade completa** — specs ↔ tarefas ↔ commits atômicos com IDs únicos
-- ✅ **Documentação em pt-BR** — tudo em português (código e identificadores técnicos em inglês)
+- **Workflow SDD**: organizacao de trabalho por especificacao, design, tarefas e execucao.
+- **Agents especializados**: orquestrador, planner, coder, revisores de seguranca, testes, lint e cache.
+- **Skills reutilizaveis**: padroes para endpoints, services, repositories, configs, logs, traces, testes, seguranca, banco de dados, cache em memoria e mais.
+- **Bootstrap FastAPI**: script para gerar uma aplicacao inicial com configuracao, observabilidade, middlewares, rotas, repositories e testes.
+- **Estrutura de projeto padronizada**: separacao clara entre `configs`, `routes`, `services`, `repositories`, `models`, `middlewares` e `observability`.
+- **Documentacao em pt-BR**: regras, convencoes e orientacoes escritas para uso no dia a dia do time.
 
-Ideal para:
-- 🏢 Equipes que precisam de **processos escaláveis**
-- 🔄 Projetos com **múltiplas features paralelas**
-- 📋 Contextos que exigem **rastreabilidade** (compliance, auditoria)
-- 🛡️ Aplicações que precisam de **boas práticas desde o dia 1**
+## Quando Usar
 
-## 📦 O Que Vem Dentro
+Use este template quando voce quiser:
 
-### Core (Pronto ✅)
+- iniciar uma API FastAPI com base tecnica consistente;
+- criar um padrao reutilizavel para varios projetos;
+- orientar desenvolvimento com regras claras para agents e Copilot;
+- manter rastreabilidade entre requisitos, decisoes e commits;
+- reduzir decisoes repetitivas sobre estrutura, logs, configs, clients, banco e testes.
 
+## Como Usar Este Repositorio
+
+Este repositorio pode ser usado de tres formas principais:
+
+1. **Como template de projeto**: rode o `bootstrap.py` para criar uma aplicacao FastAPI inicial em outro diretorio.
+2. **Como guia de padroes**: consulte as skills em `.github/skills/` quando estiver implementando endpoints, services, repositories, configs, logs, traces, testes ou seguranca.
+3. **Como workflow de desenvolvimento**: use os agents e o SDD para transformar ideias em specs, designs, tarefas e implementacoes rastreaveis.
+
+Nada aqui e obrigatorio para sempre. O objetivo e dar um comeco forte, com escolhas razoaveis e consistentes. Se o time preferir outro nome de pasta, outra estrategia de repository, outro provider, outra convencao de log ou outro jeito de organizar features, pode trocar sem cerimonia.
+
+E se voce nao gostou de algum padrao, tudo bem: reclame com quem inventou o padrao, nao comigo. Eu so deixei a plaquinha organizada na porta. Brincadeiras a parte, use, ajuste, remova e evolua o que fizer sentido para o seu contexto.
+
+## Como Usar o Bootstrap
+
+O arquivo [bootstrap.py](bootstrap.py) e o ponto de entrada para criar a estrutura inicial de uma aplicacao FastAPI.
+
+### Visualizar o Que Sera Criado
+
+```bash
+python bootstrap.py --name meu-projeto --domain vendas --dry-run
 ```
-.github/
-├── agents/              # Orquestrador + especialistas
-│   └── 1.md            # Orchestrator (gateway central)
-└── skills/             # Padrões reutilizáveis
-    ├── spc-driven/     # Skill: Workflow SDD 4 fases
-    ├── domain/         # Skill: Padrões de domínio
-    ├── standard-*      # Skills: Logs, traces, endpoints, docstrings, middlewares
-    └── ...
+
+O `--dry-run` mostra os arquivos que seriam gerados sem escrever no disco.
+
+### Criar a Estrutura no Diretorio Atual
+
+```bash
+python bootstrap.py --name meu-projeto --domain vendas
 ```
 
-### Estrutura de Specs (Pronto ✅)
+### Criar em Outro Diretorio
 
+```bash
+python bootstrap.py --name meu-projeto --domain vendas --target ../meu-projeto
 ```
+
+### Definir a Versao Inicial da API
+
+```bash
+python bootstrap.py --name meu-projeto --domain vendas --api-version v1
+```
+
+Tambem e aceito passar apenas o numero:
+
+```bash
+python bootstrap.py --api-version 2
+```
+
+Nesse caso o bootstrap normaliza para `v2`.
+
+### Sobrescrever Arquivos Existentes
+
+```bash
+python bootstrap.py --force
+```
+
+Sem `--force`, arquivos existentes sao preservados e aparecem como `skip` na saida.
+
+## Opcoes do Bootstrap
+
+| Opcao | Descricao |
+| --- | --- |
+| `--name` | Nome publico da aplicacao. Se omitido, usa o nome do diretorio alvo. |
+| `--domain` | Dominio funcional principal. Se omitido, usa o nome do projeto. |
+| `--api-version` | Versao inicial da API no formato `v1`, `v2` ou numero inteiro. Padrao: `v1`. |
+| `--target` | Diretorio onde a estrutura sera criada. Padrao: diretorio atual. |
+| `--force` | Sobrescreve arquivos ja existentes. |
+| `--dry-run` | Simula a criacao dos arquivos sem gravar no disco. |
+
+## Estrutura Criada Pelo Bootstrap
+
+O bootstrap gera uma aplicacao FastAPI com esta base:
+
+```text
+.
+├── pyproject.toml
+├── .env.example
+├── start.py
+├── src/
+│   ├── main.py
+│   ├── configs/
+│   │   ├── settings.py
+│   │   ├── httpx_client.py
+│   │   ├── mongo.py
+│   │   ├── sql_database.py
+│   │   ├── object_storage.py
+│   │   └── values_domains/
+│   ├── middlewares/
+│   │   └── api_version.py
+│   ├── models/
+│   │   └── health/
+│   ├── observability/
+│   │   ├── logging/
+│   │   └── telemetry/
+│   ├── repositories/
+│   │   └── object_storage/
+│   ├── routes/
+│   │   └── health/
+│   └── services/
+└── tests/
+```
+
+### Principais Pecas Geradas
+
+- `pyproject.toml`: dependencias base para FastAPI, Uvicorn, Pydantic, HTTPX, OpenTelemetry, MongoDB, SQLAlchemy, SQLite async e extras para object storage.
+- `.env.example`: variaveis organizadas por dominio, como `APP__`, `SERVER__`, `LOGGING__`, `TELEMETRY__`, `MONGO__`, `SQL_DATABASE__` e `OBJECT_STORAGE__`.
+- `start.py`: entrypoint operacional que carrega settings, configura logs e inicia o Uvicorn.
+- `src/main.py`: composicao da aplicacao FastAPI, lifespan, recursos globais, middlewares, rotas e telemetry.
+- `src/configs/`: carregamento de settings, clients e providers compartilhados.
+- `src/configs/values_domains/`: modelos Pydantic separados por dominio de configuracao.
+- `src/middlewares/api_version.py`: resolucao da versao da API por header.
+- `src/routes/health/`: endpoint `/health` com envelope de resposta e metadados da aplicacao.
+- `src/observability/`: logging estruturado e setup de tracing OpenTelemetry.
+- `src/repositories/object_storage/`: interface, factory e implementacoes para Azure Blob e AWS S3.
+- `src/services/`: camada reservada para regras de negocio.
+- `tests/`: ponto inicial para a suite de testes.
+
+## Depois de Gerar o Projeto
+
+Um fluxo inicial comum e:
+
+```bash
+python bootstrap.py --name minha-api --domain meu-dominio --target ../minha-api
+cd ../minha-api
+cp .env.example .env
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+python start.py
+```
+
+Com a aplicacao rodando, acesse:
+
+- `GET /health`
+- `/docs`
+- `/redoc`
+
+## Workflow SDD
+
+O SDD organiza features em fases adaptaveis:
+
+```text
+SPECIFY -> DESIGN -> TASKS -> EXECUTE
+```
+
+Nem toda demanda precisa passar por todas as fases. Bugs simples e ajustes pequenos podem usar modo rapido; features maiores devem ter especificacao, desenho tecnico e tarefas atomicas.
+
+A estrutura esperada de specs e:
+
+```text
 .specs/
 ├── project/
-│   ├── PROJECT.md          # Visão e goals
-│   ├── ROADMAP.md          # Features e milestones
-│   └── STATE.md            # Memory: decisões, blockers, lições, TODOs
-├── codebase/               # Análise brownfield (p/ projetos existentes)
-│   ├── STACK.md            # Tech stack
-│   ├── ARCHITECTURE.md     # Padrões arquiteturais
-│   ├── CONVENTIONS.md      # Convenções de código
-│   ├── STRUCTURE.md        # Layout de diretórios
-│   ├── TESTING.md          # Estratégia de testes
-│   ├── INTEGRATIONS.md     # Integrações externas
-│   └── CONCERNS.md         # Preocupações técnicas
-├── features/               # Especificações de features
-│   └── [feature-name]/
-│       ├── spec.md         # Requisitos rastreáveis
-│       ├── context.md      # Decisões em áreas cinzentas
-│       ├── design.md       # Arquitetura e componentes
-│       └── tasks.md        # Tarefas atômicas
-└── quick/                  # Modo rápido (bugs, configs)
-    └── [task-id]/
+│   ├── PROJECT.md
+│   ├── ROADMAP.md
+│   └── STATE.md
+├── codebase/
+│   ├── STACK.md
+│   ├── ARCHITECTURE.md
+│   ├── CONVENTIONS.md
+│   ├── STRUCTURE.md
+│   ├── TESTING.md
+│   ├── INTEGRATIONS.md
+│   └── CONCERNS.md
+├── features/
+│   └── nome-da-feature/
+│       ├── spec.md
+│       ├── context.md
+│       ├── design.md
+│       └── tasks.md
+└── quick/
+    └── id-da-tarefa/
         ├── TASK.md
         └── SUMMARY.md
 ```
 
-### Aplicação (Em Bootstrap 🚧)
+## Agents
 
-```
-src/                    # Estrutura padrão (quando bootstrap estiver pronto)
-├── config/            # Configuração por domínio
-├── routes/            # Endpoints REST
-├── services/          # Lógica de negócio
-├── repositories/      # Acesso a dados
-├── models/            # Domain models
-├── middlewares/       # FastAPI middlewares
-├── observability/     # Logs, traces, métricas
-└── utils/             # Utilitários compartilhados
-```
+Os agents em `.github/agents/` orientam a execucao do workflow:
 
-## 🔄 O Workflow SDD (Spec-Driven Development)
+- `workflow-orchestrator`: coordena o fluxo e direciona o trabalho.
+- `sdd-planner`: ajuda a transformar demanda em especificacao, design e tarefas.
+- `coder-enginner`: implementa alteracoes no codigo.
+- `security-reviewer`: revisa riscos de seguranca, dados sensiveis e abuso.
+- `test-engineer`: planeja e ajusta testes.
+- `lint-engineer`: valida lint, formatacao e type checks.
+- `cache-reviewer`: avalia decisoes de cache em memoria.
+- `sdd-refiner`: refina specs e decisoes do fluxo SDD.
 
-Todo feature segue este fluxo adaptativo:
+## Skills
 
-```
-┌─────────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
-│  SPECIFY    │ → │  DESIGN  │ → │  TASKS   │ → │ EXECUTE  │
-│ (Obrigatório)│   │(Opcional)│    │(Opcional)│    │(Obrigat.)│
-└─────────────┘    └──────────┘    └──────────┘    └──────────┘
-```
+As skills em `.github/skills/` documentam padroes reutilizaveis. As principais incluem:
 
-**Dimensionamento automático por escopo:**
+- `spc-driven`: workflow SDD e referencias para specify, design, tasks, implementacao e handoff.
+- `fastapi-best-practices`: composicao FastAPI, dependency injection, async e tratamento de erros.
+- `standard-configs`: settings, values domains e providers.
+- `standard-endpoints`: routers, status codes, query params e documentacao de endpoints.
+- `standard-services`: padroes para camada de service.
+- `standard-repositories`: padroes para repositories e execucao de queries/blob/openai.
+- `standard-data-models`: contratos de request/response e modelos de persistencia.
+- `standard-database`: selecao de banco, SQL, NoSQL, migrations e indexes.
+- `standard-integrations`: HTTP clients, webhooks, resiliencia e observabilidade.
+- `standard-logs`: eventos de log, correlacao e dados sensiveis.
+- `standard-traces`: traces, spans, correlacao e atributos seguros.
+- `standard-middleware`: ordem de middlewares, correlation ID e security headers.
+- `standard-errors`: contrato de erro, validacoes e mapeamento de excecoes.
+- `standard-security`: OWASP API, autenticacao, autorizacao e protecao de dados.
+- `standard-tests`: estrategia de testes unitarios, integracao, fixtures e e2e.
+- `standard-docstrings`: docstrings no estilo NumPy.
+- `in-memory-cache`: decisao, implementacao e revisao de cache local.
+- `processing-interfaces`: interfaces para processamento e composicao por DI.
+- `conversation-conventions`: atualizacao de convencoes a partir de feedback da conversa.
 
-| Escopo | Exemplo | Especificar | Design | Tarefas | Executar |
-|--------|---------|-------------|--------|---------|----------|
-| **Pequeno** | Config, bugfix | Rápido (1 pág) | ✗ | ✗ | ✓ |
-| **Médio** | Feature clara | Completo | ✗ | ✗ | ✓ |
-| **Grande** | Multi-componente | Completo | ✓ | ✓ | ✓ |
-| **Complexo** | Novo domínio | Completo + Discuss | ✓ | ✓ | ✓ + UAT |
+## Como Evoluir Uma Feature
 
-## 🤖 Agents e Specialistas
+1. Registre ou atualize a spec em `.specs/features/<feature>/spec.md`.
+2. Use as skills relevantes para definir padroes de endpoints, services, repositories, models, logs, traces e testes.
+3. Quebre a entrega em tarefas pequenas quando a feature envolver mais de um componente.
+4. Implemente o menor slice vertical possivel.
+5. Rode testes, lint e revisoes relevantes.
+6. Mantenha commits ou notas de execucao referenciando os requisitos quando aplicavel.
 
-O **Orquestrador** (`workflow-orchestrator`) roteia cada feature para:
+Exemplo de pedido para agent:
 
-1. **Especialista em specs** — Valida requisitos, clareza e rastreabilidade
-2. **FastAPI coder** — Implementa o menor slice vertical seguro
-3. **Security reviewer** — Valida segurança, compliance, dados sensíveis e abuso
-4. **Test engineer** — Cria, ajusta e executa testes depois da revisão de segurança
-5. **Lint engineer** — Executa lint, format check e type check ao final
-
-*Ordem padrão: código → segurança → testes → lint.*
-
-## 🛠️ Skills Disponíveis
-
-### ✅ Prontos para Usar
-
-- **spc-driven** — Workflow 4 fases com memory persistente
-- **standard-logs** — Padrão de logging estruturado
-- **standard-traces** — Padrão de tracing distribuído
-- **standard-endpoints** — Padrão de endpoints REST
-- **standard-docstrings** — Padrão de docstrings em Python
-- **standard-middleware** — Padrão de middlewares
-- **domain** — Padrões de modelagem de domínio
-- **conversation-conventions** — Atualiza skills, referências ou convenções a partir de feedback da conversa
-
-### 🚧 Em Desenvolvimento
-
-- **bootstrap.py** — Script para scaffolding automático
-- Templates de spec — Para acelerar criação de features
-- Prompts de agents — Instruções especializadas para cada revisor
-
-## 📋 Como Usar Este Template
-
-### 1. **Iniciar um Novo Projeto**
-
-```bash
-# Clonar template
-git clone <this-repo> meu-projeto
-cd meu-projeto
-
-# Criar projeto FastAPI (quando bootstrap estiver pronto)
-python bootstrap.py --name="meu-projeto" --domain="vendas"
+```text
+@spc "Especificar e implementar a feature de cadastro de clientes"
 ```
 
-### 2. **Especificar uma Nova Feature**
+Para tarefas menores:
 
-```bash
-# Criar spec a partir do template
-.specs/features/nova-feature/spec.md
+```text
+@spc "Adicionar campo telefone no cadastro de clientes"
 ```
 
-Estrutura básica:
+## Estrutura Deste Repositorio
 
-```markdown
-# Feature: [Nome da Feature]
-
-## Requisitos
-- [REQ-001] Descrição do requisito
-- [REQ-002] Outro requisito
-
-## Aceitação
-- [ ] Critério 1
-- [ ] Critério 2
-
-## Arquivos Impactados
-- `src/services/novo_servico.py`
-- `src/routes/novo_endpoint.py`
-```
-
-### 3. **Executar Workflow SDD**
-
-```bash
-# No VS Code, invocar skill:
-# @spc "Especificar a feature de autenticação"
-# → Spec-Driven workflow inicia automaticamente
-```
-
-O workflow vai:
-- ✓ Gerar spec completo com IDs rastreáveis
-- ✓ Rotar para especialistas (conforme necessário)
-- ✓ Gerar tarefas atômicas
-- ✓ Executar com verificações inline
-- ✓ Criar commit atômico com referência a REQs
-
-### 4. **Implementar com Rastreabilidade**
-
-Cada tarefa gera um commit:
-
-```bash
-git log --oneline
-
-# Saída esperada:
-feat(auth): [REQ-001, REQ-002] Implementar autenticação OAuth2
-feat(auth): [REQ-001] Adicionar token refresh
-feat(auth): [REQ-002] Validar escopos
-```
-
-## 🏗️ Estrutura de Diretórios
-
-```
+```text
 .
-├── README.md                    # Este arquivo
+├── README.md
+├── bootstrap.py
 ├── .github/
-│   ├── agents/                  # Orquestradores especializados
-│   ├── skills/                  # Skills e padrões reutilizáveis
-│   ├── prompts/                 # Instruções de agents (em dev)
-│   └── instructions/            # Customizações VS Code
-├── .specs/                      # Especificações e planejamento
-│   ├── project/                 # Visão, roadmap, state
-│   ├── codebase/                # Análise brownfield
-│   ├── features/                # Especificações de features
-│   └── quick/                   # Tarefas rápidas
-├── src/                         # Aplicação FastAPI (quando bootstrapped)
-│   ├── config/
-│   ├── routes/
-│   ├── services/
-│   ├── repositories/
-│   ├── models/
-│   └── observability/
-├── tests/                       # Suite de testes
-├── docker/                      # Docker setup
-├── requirements.txt             # Dependências Python
-└── pyproject.toml              # Configuração do projeto
+│   ├── agents/
+│   ├── skills/
+│   ├── prompts/
+│   └── copilot-instructions.md
+└── .specs/
+    ├── project/
+    ├── codebase/
+    ├── features/
+    └── quick/
 ```
 
-## 🎯 Status Atual
+## Boas Praticas Esperadas
 
-### ✅ Pronto para Usar
-- [x] Workflow SDD (4 fases adaptativo)
-- [x] Skill completa com 200+ linhas de documentação
-- [x] Estrutura de specs definida
-- [x] Orquestrador base
-- [x] 7 skills de padrões de código
+- manter nomes tecnicos em ingles e documentacao em pt-BR;
+- separar rotas, services, repositories, models e configs;
+- usar settings tipadas em vez de acessar ambiente diretamente espalhado pelo codigo;
+- centralizar clients externos e recursos globais no ciclo de vida da aplicacao;
+- evitar logs com dados sensiveis;
+- adicionar testes proporcionais ao risco da mudanca;
+- preferir alteracoes pequenas, rastreaveis e revisaveis.
 
-### 🚧 Em Progresso
-- [ ] `bootstrap.py` — scaffolding automático
-- [ ] Agents especializados (3+ agentes)
-- [ ] Prompts de agents prontos
-- [ ] Aplicação de exemplo completa
+Essas praticas sao recomendacoes iniciais. Elas existem para reduzir atrito, nao para travar o projeto. Quando uma regra atrapalhar mais do que ajudar, documente a decisao, ajuste o padrao e siga o jogo.
 
-### 📋 Roadmap
+## Proximos Passos
 
-**Fase 0 (Foundation — Agora)**
-- [ ] Completar bootstrap.py
-- [ ] Criar templates de spec
-- [ ] Documentar walkthrough de primeira feature
-
-**Fase 1 (MVP — T+2 semanas)**
-- [ ] Agents especializados funcional
-- [ ] Exemplo completo (auth + CRUD)
-- [ ] Documentação de deployment
-
-**Fase 2 (Production Ready — T+4 semanas)**
-- [ ] Observabilidade completa (logs, traces, métricas)
-- [ ] CI/CD automatizado
-- [ ] Exemplos de integração (BD, cache, queues)
-
-## 💡 Exemplos
-
-### Exemplo 1: Feature Pequena (Modo Rápido)
-
-**Tarefa:** Adicionar novo campo à tabela de usuários
-
-```bash
-@spc "Adicionar campo 'telefone' aos usuários"
-```
-
-→ Workflow rápido: Implementa diretamente sem design/tasks formais
-
-### Exemplo 2: Feature Média
-
-**Tarefa:** Implementar system de notificações por email
-
-```bash
-@spc "Especificar feature de notificações por email"
-```
-
-→ Gera spec + design + tarefas + valida design antes de implementar
-
-### Exemplo 3: Feature Complexa
-
-**Tarefa:** Integrar pagamento com Stripe
-
-```bash
-@spc "Especificar integração de pagamento Stripe com webhooks"
-```
-
-→ Workflow completo: Discuss áreas cinzentas → Design detalhado → Tarefas atômicas → UAT interativo → Deploy seguro
-
-## 📚 Documentação Detalhada
-
-- [Skill SDD (Spec-Driven Development)](/.github/skills/spc-driven/SKILL.md) — Workflow completo
-- [Skills de Padrões](/.github/skills/) — Logs, traces, endpoints, middlewares
-- [Especificações do Projeto](/.specs/project/) — Visão, roadmap, decisões
-- [Análise de Codebase](/.specs/codebase/) — Stack, arquitetura, conventions
-
-## 🤝 Contributing
-
-Contribuições são bem-vindas! Para adicionar novas skills ou especialistas:
-
-1. Crie diretório `/.github/skills/[skill-name]/`
-2. Adicione `SKILL.md` com frontmatter YAML
-3. Documente em pt-BR com exemplos
-4. Teste com @spc ou nome da skill
-
-## 📄 Licença
-
-Este template é fornecido como-é. Use livremente em seus projetos.
-
----
-
-**Próximos passos:**
-1. Leia [.specs/project/PROJECT.md](.specs/project/PROJECT.md) para visão do projeto
-2. Explore [.github/skills/spc-driven/SKILL.md](.github/skills/spc-driven/SKILL.md) para entender o workflow
-3. Experimente: `@spc "Especificar primeira feature"` no VS Code
-
-**Dúvidas?** Veja a documentação em [.specs/](.specs/) ou revise os exemplos em [.github/skills/](.github/skills/).
-
-🚀 **Bora construir algo incrível!**
+1. Execute `python bootstrap.py --dry-run` para ver a estrutura gerada.
+2. Crie uma aplicacao em um diretorio alvo com `python bootstrap.py --target ../minha-api`.
+3. Leia `.github/skills/spc-driven/SKILL.md` para entender o fluxo SDD.
+4. Use os agents e skills como guia para implementar a primeira feature real.
