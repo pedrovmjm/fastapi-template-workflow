@@ -2,7 +2,6 @@
 name: workflow-orchestrator
 description: Orquestrador SDLC. Use quando a tarefa exigir coordenar especificacao, planejamento, implementacao, revisao de seguranca, testes, lint ou handoffs entre subagents especializados.
 tools: ["read", "search", "agent", "todo"]
-disable-model-invocation: true
 user-invocable: true
 ---
 

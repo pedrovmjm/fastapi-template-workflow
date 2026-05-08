@@ -4,7 +4,7 @@ Responda ao usuario em pt-BR por padrao.
 
 Este repositorio usa custom agents do GitHub Copilot em `.github/agents/` e skills em `.github/skills/`.
 
-Para tarefas FastAPI que envolvam planejamento, implementacao, seguranca, testes ou lint, use o agente `workflow-orchestrator` como ponto de entrada. Ele coordena:
+Para tarefas FastAPI que envolvam planejamento, implementacao, seguranca, testes ou lint e que devam percorrer o workflow do repositorio, selecione explicitamente o agente `workflow-orchestrator` como ponto de entrada. Ele coordena:
 
 - `sdd-planner` para especificacao, design e plano SDD/SPC.
 - `sdd-refiner` para revisar ambiguidade, criterios de aceite, riscos e tarefas.
@@ -14,7 +14,9 @@ Para tarefas FastAPI que envolvam planejamento, implementacao, seguranca, testes
 - `test-engineer` para criar, ajustar e executar testes depois da revisao de seguranca.
 - `lint-engineer` para lint, format e type checks depois dos testes.
 
-O `workflow-orchestrator` nao deve ser invocado automaticamente. Selecione-o explicitamente quando quiser o workflow completo.
+Quando o pedido do usuario for executar uma feature, bugfix ou mudanca usando o workflow deste repositorio, a acao correta e selecionar explicitamente `workflow-orchestrator`; nao pule direto para `sdd-planner` apenas porque existe etapa de planejamento.
+
+Use `sdd-planner` diretamente somente quando o usuario pedir apenas especificacao, design, quebra de tarefas, revisao de plano ou handoff, sem solicitar implementacao/validacao completa.
 
 O orquestrador so pode coordenar com `read`, `search`, `todo` e `agent`. O alias `agent` representa a capacidade de chamar subagents, isto e, `runSubagents`. Ele nao deve escrever arquivos, rodar comandos, implementar codigo ou executar skills diretamente.
 

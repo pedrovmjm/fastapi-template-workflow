@@ -216,7 +216,7 @@ def build_file_templates() -> list[FileTemplate]:
 
             import uvicorn
 
-            from src.configs.settings import get_settings
+            from src.configs.settings import get_settings, print_settings_variables
             from src.observability.logging.logging import configure_logging
 
 
@@ -230,6 +230,7 @@ def build_file_templates() -> list[FileTemplate]:
                 """
 
                 settings = get_settings()
+                print_settings_variables(settings=settings)
                 configure_logging(settings=settings)
                 workers = 1 if settings.server.reload else settings.server.workers
 
