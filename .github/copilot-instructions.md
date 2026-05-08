@@ -8,9 +8,10 @@ Para tarefas FastAPI que envolvam planejamento, implementacao, seguranca, testes
 
 - `sdd-planner` para especificacao, design e plano SDD/SPC.
 - `sdd-refiner` para revisar ambiguidade, criterios de aceite, riscos e tarefas.
-- `coder` para implementacao com as skills standard aplicaveis.
+- `coder-engineer` para implementacao com as skills standard aplicaveis.
 - `security-reviewer` para auditoria de seguranca, privacidade, logs, traces e abuso.
-- `test-lint-engineer` para testes, lint, format, type checks e validacao final.
+- `test-engineer` para criar, ajustar e executar testes depois da revisao de seguranca.
+- `lint-engineer` para lint, format e type checks depois dos testes.
 
 O `workflow-orchestrator` nao deve ser invocado automaticamente. Selecione-o explicitamente quando quiser o workflow completo.
 
@@ -20,6 +21,6 @@ Skills em `.github/skills/` sao referencias de padrao e ownership. O orquestrado
 
 Antes de alterar codigo, o agent executor deve consultar as skills relevantes em `.github/skills/` e preservar os padroes locais do projeto.
 
-Use `.github/skills/spc-driven/SKILL.md` para dimensionar o fluxo: rapido, medio, grande ou complexo. Para mudancas pequenas, condense o processo, mas ainda verifique security e testes quando houver impacto real.
+Use `.github/skills/spc-driven/SKILL.md` para dimensionar o fluxo: rapido, medio, grande ou complexo. Para mudancas pequenas, condense o processo, mas mantenha a ordem codigo -> seguranca -> testes -> lint quando houver impacto real.
 
 Ao concluir uma tarefa, reporte arquivos alterados, skills usadas, validacoes executadas e riscos remanescentes.

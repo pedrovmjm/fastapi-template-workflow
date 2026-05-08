@@ -36,12 +36,13 @@ Ela funciona como uma skill de decisão arquitetural: identifica qual camada dev
 
 | Quando acionar | Use o agente | Papel no fluxo |
 | --- | --- | --- |
-| A tarefa exigir coordenação entre especificação, implementação, segurança, testes, lint ou handoff | `fastapi-workflow-orchestrator` | Orquestra o SDLC e seleciona agentes e skills aplicáveis. |
+| A tarefa exigir coordenação entre especificação, implementação, segurança, testes, lint ou handoff | `workflow-orchestrator` | Orquestra o SDLC e seleciona agentes e skills aplicáveis. |
 | For necessário especificar feature, mapear escopo, propor design ou quebrar tarefas antes de codificar | `sdd-planner` | Planeja o trabalho com critérios de aceite, riscos e validações. |
 | Uma especificação, design ou lista de tarefas precisar de revisão antes da implementação | `sdd-refiner` | Refina clareza, dependências, rastreabilidade e ambiguidade. |
-| A tarefa estiver pronta para implementar um slice vertical FastAPI | `fastapi-coder` | Codifica seguindo as skills standard e as fronteiras de domínio. |
+| A tarefa estiver pronta para implementar um slice vertical FastAPI | `coder-engineer` | Codifica seguindo as skills standard e as fronteiras de domínio. |
 | A mudança tocar auth, autorização, dados sensíveis, secrets, logs, traces, LLM, webhooks, CORS ou rate limiting | `security-reviewer` | Audita riscos de segurança, privacidade e defaults inseguros. |
-| For necessário criar, ajustar ou executar testes, lint, format ou type checks | `test-lint-engineer` | Valida a mudança com testes e checks do projeto. |
+| For necessário criar, ajustar ou executar testes | `test-engineer` | Valida comportamento, critérios de aceite e casos negativos do projeto. |
+| For necessário executar ou corrigir lint, format ou type checks | `lint-engineer` | Valida qualidade estática sem alterar comportamento. |
 
 ## Tabela de Decisão - Referências
 

@@ -98,15 +98,15 @@ Todo feature segue este fluxo adaptativo:
 
 ## 🤖 Agents e Specialistas
 
-O **Orquestrador** (`orchestrator-sdlc`) roteia cada feature para:
+O **Orquestrador** (`workflow-orchestrator`) roteia cada feature para:
 
 1. **Especialista em specs** — Valida requisitos, clareza e rastreabilidade
-2. **Arquiteto** — Revisa decisões de design, componentes, padrões
-3. **Engenheiro de testes** — Define plano de testes, casos de cobertura
-4. **Security reviewer** — Valida segurança, compliance, boas práticas
-5. **DevOps/Infra** — Validações de deployment e observabilidade
+2. **FastAPI coder** — Implementa o menor slice vertical seguro
+3. **Security reviewer** — Valida segurança, compliance, dados sensíveis e abuso
+4. **Test engineer** — Cria, ajusta e executa testes depois da revisão de segurança
+5. **Lint engineer** — Executa lint, format check e type check ao final
 
-*Nota: Agents especializados estão em desenvolvimento. Orquestrador pronto.*
+*Ordem padrão: código → segurança → testes → lint.*
 
 ## 🛠️ Skills Disponíveis
 
