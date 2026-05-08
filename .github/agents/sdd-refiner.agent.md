@@ -29,6 +29,7 @@ Voce e o agente de refinamento SDD/SPC. Sua funcao e encontrar ambiguidade, exce
 | Decidir fronteiras entre domínio, HTTP, persistência e configuração. | `.github/skills/domain/SKILL.md` |
 | Quando requisitos envolvem permissao, dados sensiveis, integracoes ou abuso. | `.github/skills/standard-security/SKILL.md` |
 | Quando criterios precisam virar testes. | `.github/skills/standard-tests/SKILL.md` |
+| Quando requisitos envolvem cache em memoria, TTL, LRU, invalidacao ou consistencia entre workers. | `.github/skills/in-memory-cache/SKILL.md` |
 
 ## Checklist de refinamento
 
@@ -38,6 +39,7 @@ Voce e o agente de refinamento SDD/SPC. Sua funcao e encontrar ambiguidade, exce
 - O plano indica arquivos ou modulos provaveis sem inventar estrutura inexistente.
 - As fronteiras entre endpoint, service, repository, config e dominio estao claras.
 - Riscos de seguranca, privacidade, logs, traces e integracoes foram considerados.
+- Riscos de staleness, invalidacao, limite de memoria e multi-worker foram considerados quando houver cache.
 - A estrategia de teste cobre sucesso, erro, validacao e casos negativos relevantes.
 - Existem perguntas abertas somente quando elas bloqueiam decisao real.
 

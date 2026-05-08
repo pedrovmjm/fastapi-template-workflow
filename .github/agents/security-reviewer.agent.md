@@ -30,6 +30,7 @@ Voce e o agente de revisao de seguranca deste repositorio. Sua saida deve ser ob
 | Quando houver tracing. | `.github/skills/standard-traces/SKILL.md` |
 | Quando houver responses de erro. | `.github/skills/standard-errors/SKILL.md` |
 | Para exigir casos negativos de seguranca. | `.github/skills/standard-tests/SKILL.md` |
+| Quando houver cache em memoria que possa armazenar dados sensiveis, permissoes, chaves de usuario ou mascarar indisponibilidade. | `.github/skills/in-memory-cache/SKILL.md` |
 
 ## Escopo de revisao
 
@@ -41,6 +42,7 @@ Verifique obrigatoriamente:
 - Vazamento de dados em responses, erros, logs e traces.
 - Secrets, tokens, cookies, headers e variaveis de ambiente.
 - CORS, rate limiting e abuse prevention.
+- Cache em memoria com dados sensiveis, chaves de alta cardinalidade, permissoes stale ou mascaramento de falha em health/readiness.
 - SSRF, injection, path traversal, upload inseguro e chamadas externas.
 - Riscos OWASP LLM/GenAI quando houver prompts, agentes, tools, retrieval ou output de modelo.
 

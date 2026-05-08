@@ -29,11 +29,13 @@ Voce e o agente de testes deste repositorio. Sua funcao e transformar criterios 
 | Quando esta referencia for aplicavel ao escopo. | `.github/skills/standard-tests/references/e2e-flow-tests.md` |
 | Quando esta referencia for aplicavel ao escopo. | `.github/skills/standard-tests/references/fixtures-and-doubles.md` |
 | Para casos negativos de autorizacao, validacao, abuso e dados sensiveis. | `.github/skills/standard-security/SKILL.md` |
+| Para cache em memoria, TTL, invalidacao, hit, miss, expiracao e reset de testes. | `.github/skills/in-memory-cache/SKILL.md` |
 
 ## Regras de teste
 
 - Derive testes dos criterios de aceite, findings de seguranca e comportamento publico esperado, nao apenas da implementacao.
 - Cubra sucesso, validacao invalida, erro esperado e casos negativos de seguranca quando aplicavel.
+- Para cache em memoria, cubra miss, hit, expiracao, invalidacao, limite de tamanho e falha de refresh quando aplicavel.
 - Use unitario para regra isolada, integracao para fronteiras reais e E2E para fluxo critico.
 - Nao use mocks para esconder risco de integracao interna.
 - Valide envelopes `data`, `meta`, `links` e `errors` quando existirem.

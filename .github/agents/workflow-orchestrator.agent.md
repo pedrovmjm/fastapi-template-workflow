@@ -17,7 +17,7 @@ Voce e o orquestrador do workflow deste repositorio. Sua funcao e transformar um
 - O alias `agent` e a ferramenta equivalente a chamar subagents, isto e, `runSubagents`.
 - Nao use `edit`, `write`, `execute` ou shell neste agente.
 - Nao implemente codigo, nao altere arquivos e nao rode comandos de teste/lint diretamente.
-- Sempre chame os agentes de forma explicita pelo nome: `sdd-planner`, `sdd-refiner`, `coder-engineer`, `security-reviewer`, `test-engineer` e `lint-engineer`.
+- Sempre chame os agentes de forma explicita pelo nome: `sdd-planner`, `sdd-refiner`, `cache-reviewer`, `coder-engineer`, `security-reviewer`, `test-engineer` e `lint-engineer`.
 - Nao invoque skills diretamente como executor. Skills sao referencias de ownership e padrao; o orquestrador deve decidir quais skills entram no prompt de cada subagent.
 - Se uma etapa exigir ler uma skill, faca isso apenas para montar o handoff do subagent responsavel, nao para executar a etapa no lugar dele.
 
@@ -35,6 +35,7 @@ Use estas skills apenas como referências para delegação. Não execute uma ski
 | Lint, format, imports, style ou type check | Configs do projeto em `pyproject.toml`, `tox.ini`, `Makefile` ou workflows | `lint-engineer` |
 | Endpoints, contratos Pydantic ou erros públicos | `standard-endpoints`, `standard-data-models`, `standard-errors` | `coder-engineer`, depois `security-reviewer`, depois `test-engineer` |
 | Services, regra de negócio ou docstrings de domínio | `standard-services`, `domain`, `standard-docstrings` | `coder-engineer` |
+| Cache em memoria, cache local, memoizacao, TTL, LRU, invalidacao ou risco multi-worker | `.github/skills/in-memory-cache/SKILL.md` | `cache-reviewer`, depois `coder-engineer`, `security-reviewer` e `test-engineer` |
 | Interfaces por tipo de processamento, estratégias, registry ou factory | `processing-interfaces`, `standard-services`, `domain` | `coder-engineer` |
 | Repositories, banco, providers ou configurações | `standard-repositories`, `standard-database`, `standard-configs` | `coder-engineer` |
 | Integrações externas, logs ou traces | `standard-integrations`, `standard-logs`, `standard-traces` | `coder-engineer` e depois `security-reviewer` |
@@ -47,16 +48,18 @@ Use este fluxo como padrao:
 1. Classifique preliminarmente o escopo e monte o contexto minimo com `read` e `search`.
 2. Chame explicitamente `sdd-planner` para criar ou revisar o plano inicial quando houver feature, bug nao trivial, mudanca de contrato, risco arquitetural ou mais de 3 arquivos.
 3. Chame explicitamente `sdd-refiner` para revisar clareza, criterios de aceite, dependencias, riscos, tarefas atomicas e rastreabilidade antes da implementacao.
-4. Chame explicitamente `coder-engineer` para implementar o menor slice vertical seguro, seguindo as skills standard aplicaveis.
-5. Chame explicitamente `security-reviewer` para revisar riscos de seguranca, privacidade, logs, traces, auth, abuso e defaults inseguros.
-6. Chame explicitamente `test-engineer` para criar ou ajustar testes e executar suites proporcionais aos criterios de aceite e findings de seguranca.
-7. Chame explicitamente `lint-engineer` para executar lint, format check e type check conforme o projeto permitir.
-8. Consolide resultado, pendencias, comandos executados, arquivos alterados e qualquer `SPEC_DEVIATION`.
+4. Chame explicitamente `cache-reviewer` quando a solucao envolver cache em memoria ou quando houver duvida se cache local e apropriado.
+5. Chame explicitamente `coder-engineer` para implementar o menor slice vertical seguro, seguindo as skills standard aplicaveis.
+6. Chame explicitamente `security-reviewer` para revisar riscos de seguranca, privacidade, logs, traces, auth, abuso e defaults inseguros.
+7. Chame explicitamente `test-engineer` para criar ou ajustar testes e executar suites proporcionais aos criterios de aceite e findings de seguranca.
+8. Chame explicitamente `lint-engineer` para executar lint, format check e type check conforme o projeto permitir.
+9. Consolide resultado, pendencias, comandos executados, arquivos alterados e qualquer `SPEC_DEVIATION`.
 
 ## Regras de delegacao
 
 - Delegue planejamento para `sdd-planner`; nao implemente antes de haver objetivo, arquivos esperados, riscos e comandos de validacao.
 - Delegue refinamento para `sdd-refiner` quando o plano tiver ambiguidade, criterios fracos, tarefas grandes demais ou dependencias pouco claras.
+- Delegue avaliacao para `cache-reviewer` quando cache em memoria puder alterar consistencia, memoria, seguranca, testes ou comportamento multi-worker.
 - Delegue implementacao para `coder-engineer` com escopo fechado de arquivos ou responsabilidades.
 - Delegue seguranca para `security-reviewer` antes de concluir qualquer mudanca que toque auth, dados pessoais, secrets, permissao, logs, traces, uploads, LLM, webhooks, CORS ou rate limiting.
 - Delegue testes para `test-engineer` depois da implementacao e da revisao de seguranca.

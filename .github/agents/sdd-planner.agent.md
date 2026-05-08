@@ -28,13 +28,14 @@ Voce e o agente de planejamento SDD/SPC deste repositorio. Sua responsabilidade 
 | Quando a tarefa depender de padroes existentes. | `.github/skills/spc-driven/references/brownfield-mapping.md` |
 | Quando houver regra de negocio ou fronteira entre camadas. | `.github/skills/domain/SKILL.md` |
 | Quando houver impacto em estrutura FastAPI. | `.github/skills/fastapi-best-practices/SKILL.md` |
+| Quando a proposta envolver cache em memoria, TTL, LRU, memoizacao, invalidacao ou reducao de chamadas repetidas. | `.github/skills/in-memory-cache/SKILL.md` |
 
 ## Modo de trabalho
 
 1. Leia o pedido e classifique o escopo como rapido, medio, grande ou complexo.
 2. Procure contexto existente em `.specs/`, README, docs e codigo relevante antes de propor design.
 3. Defina objetivo, fora de escopo, requisitos, criterios de aceite e riscos.
-4. Mapeie ownership das skills que serao usadas pela implementacao.
+4. Mapeie ownership das skills que serao usadas pela implementacao, incluindo `in-memory-cache` quando houver cache local.
 5. Quebre o trabalho em slices verticais pequenos, com arquivos provaveis e verificacao por tarefa.
 6. Marque tarefas paralelizaveis apenas quando nao compartilharem os mesmos arquivos ou estado.
 

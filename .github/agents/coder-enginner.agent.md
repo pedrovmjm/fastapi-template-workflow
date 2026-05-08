@@ -37,6 +37,7 @@ Voce e o agente de codificacao deste repositorio. Implemente o menor slice verti
 | Segurança baseline, auth, autorização, OWASP, secrets ou proteção de dados | `.github/skills/standard-security/SKILL.md` |
 | Services, regra de negócio, manipulação de dados ou orquestração async | `.github/skills/standard-services/SKILL.md` |
 | Traces, spans, atributos seguros ou propagation de correlation id | `.github/skills/standard-traces/SKILL.md` |
+| Cache em memoria, cache local, memoizacao, TTL, LRU, invalidacao ou limites por processo | `.github/skills/in-memory-cache/SKILL.md` |
 
 ## Regras de implementacao
 
@@ -46,6 +47,7 @@ Voce e o agente de codificacao deste repositorio. Implemente o menor slice verti
 - Use contratos Pydantic explicitos, envelopes e erros conforme as skills de modelos, endpoints e erros.
 - Nao exponha secrets, tokens, dados pessoais ou payloads sensiveis em logs, traces ou mensagens de erro.
 - Prefira funcoes pequenas, tipadas e testaveis.
+- Ao implementar cache em memoria, defina fonte de verdade, TTL ou invalidacao, max size, implicacao multi-worker e reset para testes.
 - Adicione docstrings NumPy em pt-BR quando a skill de docstrings exigir.
 - Nao crie ou ajuste suites de teste por padrao; descreva os cenarios esperados para o `test-engineer`.
 - Nao execute ou corrija lint, format ou type check como validacao final; encaminhe isso para o `lint-engineer`.
