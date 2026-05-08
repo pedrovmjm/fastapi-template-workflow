@@ -6,6 +6,27 @@ description: Project and feature planning with 4 adaptive phases - Specify, Desi
 
 Planeje e implemente projetos com precisão. Tarefas granulares. Dependências claras. Ferramentas certas. Cerimônia zero.
 
+## Tabela de Decisão - Referências
+
+| Quando precisar | Leia a referência |
+| --- | --- |
+| Inicializar visão, metas e base de planejamento do projeto | [Inicialização do Projeto](references/project-init.md) |
+| Criar ou atualizar roadmap | [Criação de roteiro](references/roadmap.md) |
+| Mapear uma base brownfield existente | [Mapeamento de brownfield](references/brownfield-mapping.md) |
+| Levantar preocupações, riscos e áreas frágeis da base | [Fase: Preocupações com a base de código](references/concerns.md) |
+| Especificar requisitos, objetivo, fora de escopo e aceite | [Especifique](references/specify.md) |
+| Resolver áreas cinzentas antes de design ou implementação | [Especifique: discuta as áreas cinzentas](references/discuss.md) |
+| Projetar solução técnica proporcional ao risco | [Projeto](references/design.md) |
+| Quebrar trabalho em tarefas atômicas verificáveis | [Tarefas](references/tasks.md) |
+| Executar implementação com rastreabilidade | [Executar](references/implement.md) |
+| Validar, verificar e registrar resultado | [Executar: validar e verificar](references/validate.md) |
+| Fazer correções pequenas ou tarefas rápidas | [Modo Rápido](references/quick-mode.md) |
+| Persistir decisões, bloqueios e memória de sessão | [Gestão de Estado](references/state-management.md) |
+| Pausar ou retomar trabalho com handoff | [Transferência de sessão](references/session-handoff.md) |
+| Trabalhar sob limite de contexto | [Limites de Contexto](references/context-limits.md) |
+| Aplicar princípios gerais de codificação | [Princípios de codificação](references/coding-principles.md) |
+| Escolher ferramentas de análise de código | [Ferramentas de análise de código](references/code-analysis.md) |
+
 ## Idioma da documentação
 
 **Todas as documentações geradas por esta skill DEVEM ser escritas em pt-BR.** Isso inclui arquivos em `.specs/`, relatórios de validação, handoffs, especificações, designs, tarefas, documentos de mapeamento brownfield e registros em `STATE.md`.
