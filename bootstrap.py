@@ -102,6 +102,20 @@ def build_file_templates() -> list[FileTemplate]:
             [tool.pytest.ini_options]
             pythonpath = ["."]
             testpaths = ["tests"]
+
+            [project.optional-dependencies]
+            object-storage-azure = [
+                "azure-storage-blob>=12.20.0",
+                "aiohttp>=3.9.0",
+            ]
+            object-storage-aws = [
+                "aiobotocore>=2.13.0",
+            ]
+            object-storage = [
+                "azure-storage-blob>=12.20.0",
+                "aiohttp>=3.9.0",
+                "aiobotocore>=2.13.0",
+            ]
             """,
         ),
         FileTemplate(
@@ -170,6 +184,25 @@ def build_file_templates() -> list[FileTemplate]:
             SQL_DATABASE__ENABLED=true
             SQL_DATABASE__URL=sqlite+aiosqlite:///:memory:
             SQL_DATABASE__ECHO=false
+
+            OBJECT_STORAGE__ENABLED=false
+            OBJECT_STORAGE__PROVIDER=azure_blob
+            OBJECT_STORAGE__CONTAINER_NAME=
+            OBJECT_STORAGE__BUCKET_NAME=
+            OBJECT_STORAGE__BASE_PREFIX=
+            OBJECT_STORAGE__URL_EXPIRES_SECONDS=3600
+            OBJECT_STORAGE__MAX_URL_EXPIRES_SECONDS=86400
+            OBJECT_STORAGE__CONNECT_TIMEOUT_SECONDS=10
+            OBJECT_STORAGE__READ_TIMEOUT_SECONDS=60
+            OBJECT_STORAGE__AZURE_CONNECTION_STRING=
+            OBJECT_STORAGE__AZURE_ACCOUNT_URL=
+            OBJECT_STORAGE__AZURE_ACCOUNT_NAME=
+            OBJECT_STORAGE__AZURE_ACCOUNT_KEY=
+            OBJECT_STORAGE__AWS_REGION_NAME=us-east-1
+            OBJECT_STORAGE__AWS_ACCESS_KEY_ID=
+            OBJECT_STORAGE__AWS_SECRET_ACCESS_KEY=
+            OBJECT_STORAGE__AWS_SESSION_TOKEN=
+            OBJECT_STORAGE__AWS_ENDPOINT_URL=
             """,
         ),
         FileTemplate(
@@ -233,6 +266,10 @@ def build_file_templates() -> list[FileTemplate]:
 
             from src.configs.httpx_client import close_httpx_client, get_httpx_client
             from src.configs.mongo import close_mongo_client, get_mongo_client
+            from src.configs.object_storage import (
+                close_object_storage_client,
+                get_object_storage_client,
+            )
             from src.configs.settings import Settings, get_settings
             from src.configs.sql_database import close_sql_engine, get_sql_engine
             from src.middlewares.api_version import ApiVersionMiddleware
@@ -267,6 +304,11 @@ def build_file_templates() -> list[FileTemplate]:
                 app.state.sql_engine = (
                     await get_sql_engine(settings=settings) if settings.sql_database.enabled else None
                 )
+                app.state.object_storage_client = (
+                    await get_object_storage_client(settings=settings)
+                    if settings.object_storage.enabled
+                    else None
+                )
                 logger.info(
                     "Aplicacao iniciada.",
                     extra={
@@ -290,6 +332,7 @@ def build_file_templates() -> list[FileTemplate]:
                 await close_httpx_client()
                 await close_mongo_client()
                 await close_sql_engine()
+                await close_object_storage_client()
                 logger.info(
                     "Aplicacao encerrada.",
                     extra={
@@ -409,6 +452,7 @@ def build_file_templates() -> list[FileTemplate]:
             from src.configs.values_domains.httpx_client import HttpxClientValues
             from src.configs.values_domains.logging import LoggingValues
             from src.configs.values_domains.mongo import MongoValues
+            from src.configs.values_domains.object_storage import ObjectStorageValues
             from src.configs.values_domains.server import ServerValues
             from src.configs.values_domains.sql_database import SqlDatabaseValues
             from src.configs.values_domains.telemetry import TelemetryValues
@@ -427,6 +471,7 @@ def build_file_templates() -> list[FileTemplate]:
                 "telemetry": "\\033[95m",
                 "mongo": "\\033[92m",
                 "sql_database": "\\033[96m",
+                "object_storage": "\\033[94m",
             }
             _LOCAL_COLOR = "\\033[32m"
             _PRD_COLOR = "\\033[31m"
@@ -456,6 +501,8 @@ def build_file_templates() -> list[FileTemplate]:
                     Configuracoes do provider MongoDB.
                 sql_database : SqlDatabaseValues
                     Configuracoes do banco SQL da aplicacao.
+                object_storage : ObjectStorageValues
+                    Configuracoes do provider de object storage.
                 """
 
                 model_config = ConfigDict(extra="forbid")
@@ -495,6 +542,10 @@ def build_file_templates() -> list[FileTemplate]:
                 sql_database: SqlDatabaseValues = Field(
                     default_factory=SqlDatabaseValues,
                     description="Configuracoes do banco SQL da aplicacao.",
+                )
+                object_storage: ObjectStorageValues = Field(
+                    default_factory=ObjectStorageValues,
+                    description="Configuracoes do provider de object storage.",
                 )
 
 
@@ -1003,6 +1054,156 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
+            "src/configs/object_storage.py",
+            '''
+            """Provider singleton para object storage assincrono."""
+
+            from __future__ import annotations
+
+            import asyncio
+            from typing import Any
+
+            from src.configs.settings import Settings, get_settings
+
+
+            _object_storage_client: Any | None = None
+            _object_storage_client_context: Any | None = None
+            _object_storage_client_lock = asyncio.Lock()
+
+
+            async def get_object_storage_client(settings: Settings | None = None) -> Any:
+                """Retorna o singleton assincrono do client de object storage.
+
+                Parameters
+                ----------
+                settings : Settings | None
+                    Configuracoes da aplicacao. Quando omitidas, usa `get_settings()`.
+
+                Returns
+                -------
+                Any
+                    Client assincrono do provider configurado.
+
+                Raises
+                ------
+                RuntimeError
+                    Quando o provider estiver desabilitado ou a dependencia opcional
+                    do provider escolhido nao estiver instalada.
+                """
+
+                global _object_storage_client
+
+                effective_settings = settings or get_settings()
+                if not effective_settings.object_storage.enabled:
+                    raise RuntimeError("Object storage esta desabilitado nas configuracoes.")
+
+                if _object_storage_client is None:
+                    async with _object_storage_client_lock:
+                        if _object_storage_client is None:
+                            if effective_settings.object_storage.provider == "azure_blob":
+                                _object_storage_client = _create_azure_blob_client(
+                                    settings=effective_settings,
+                                )
+                            else:
+                                _object_storage_client = await _create_aws_s3_client(
+                                    settings=effective_settings,
+                                )
+
+                return _object_storage_client
+
+
+            def _create_azure_blob_client(settings: Settings) -> Any:
+                """Cria client assincrono Azure Blob usando dependencia opcional."""
+
+                try:
+                    from azure.storage.blob.aio import BlobServiceClient
+                except ImportError as exc:
+                    raise RuntimeError(
+                        "Instale o extra `object-storage-azure` para usar Azure Blob.",
+                    ) from exc
+
+                storage_settings = settings.object_storage
+                client_kwargs = {
+                    "connection_timeout": storage_settings.connect_timeout_seconds,
+                    "read_timeout": storage_settings.read_timeout_seconds,
+                }
+
+                if storage_settings.azure_connection_string:
+                    return BlobServiceClient.from_connection_string(
+                        storage_settings.azure_connection_string,
+                        **client_kwargs,
+                    )
+
+                if not storage_settings.azure_account_url:
+                    raise RuntimeError(
+                        "Configure OBJECT_STORAGE__AZURE_ACCOUNT_URL ou "
+                        "OBJECT_STORAGE__AZURE_CONNECTION_STRING para usar Azure Blob.",
+                    )
+
+                return BlobServiceClient(
+                    account_url=storage_settings.azure_account_url,
+                    credential=storage_settings.azure_account_key,
+                    **client_kwargs,
+                )
+
+
+            async def _create_aws_s3_client(settings: Settings) -> Any:
+                """Cria client assincrono AWS S3 usando dependencia opcional."""
+
+                global _object_storage_client_context
+
+                try:
+                    from aiobotocore.session import get_session
+                    from botocore.config import Config
+                except ImportError as exc:
+                    raise RuntimeError(
+                        "Instale o extra `object-storage-aws` para usar AWS S3.",
+                    ) from exc
+
+                storage_settings = settings.object_storage
+                session = get_session()
+                client_kwargs: dict[str, Any] = {
+                    "region_name": storage_settings.aws_region_name,
+                    "config": Config(
+                        connect_timeout=storage_settings.connect_timeout_seconds,
+                        read_timeout=storage_settings.read_timeout_seconds,
+                    ),
+                }
+
+                if storage_settings.aws_endpoint_url:
+                    client_kwargs["endpoint_url"] = storage_settings.aws_endpoint_url
+                if storage_settings.aws_access_key_id:
+                    client_kwargs["aws_access_key_id"] = storage_settings.aws_access_key_id
+                if storage_settings.aws_secret_access_key:
+                    client_kwargs["aws_secret_access_key"] = storage_settings.aws_secret_access_key
+                if storage_settings.aws_session_token:
+                    client_kwargs["aws_session_token"] = storage_settings.aws_session_token
+
+                _object_storage_client_context = session.create_client("s3", **client_kwargs)
+                return await _object_storage_client_context.__aenter__()
+
+
+            async def close_object_storage_client() -> None:
+                """Fecha o singleton de object storage quando ele ja foi criado."""
+
+                global _object_storage_client, _object_storage_client_context
+
+                if _object_storage_client_context is not None:
+                    await _object_storage_client_context.__aexit__(None, None, None)
+                    _object_storage_client_context = None
+                    _object_storage_client = None
+                    return
+
+                if _object_storage_client is not None:
+                    close = getattr(_object_storage_client, "close", None)
+                    if close is not None:
+                        result = close()
+                        if result is not None:
+                            await result
+                    _object_storage_client = None
+            ''',
+        ),
+        FileTemplate(
             "src/configs/values_domains/__init__.py",
             '"""Dominios de valores usados pelo loader de settings."""\n',
         ),
@@ -1474,6 +1675,127 @@ def build_file_templates() -> list[FileTemplate]:
                 echo: bool = Field(
                     False,
                     description="Indica se o SQLAlchemy deve emitir statements SQL em log.",
+                )
+            ''',
+        ),
+        FileTemplate(
+            "src/configs/values_domains/object_storage.py",
+            '''
+            """Define valores de configuracao do object storage."""
+
+            from typing import Literal
+
+            from pydantic import BaseModel, ConfigDict, Field
+
+
+            class ObjectStorageValues(BaseModel):
+                """Define configuracoes dos providers Azure Blob e AWS S3."""
+
+                model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+                enabled: bool = Field(
+                    False,
+                    description="Indica se object storage deve ser inicializado no lifespan.",
+                )
+                provider: Literal["azure_blob", "aws_s3"] = Field(
+                    "azure_blob",
+                    description="Provider de object storage usado pela aplicacao.",
+                )
+                container_name: str | None = Field(
+                    None,
+                    description="Container padrao usado pelo Azure Blob.",
+                    min_length=1,
+                    max_length=256,
+                )
+                bucket_name: str | None = Field(
+                    None,
+                    description="Bucket padrao usado pelo AWS S3.",
+                    min_length=1,
+                    max_length=256,
+                )
+                base_prefix: str | None = Field(
+                    None,
+                    description="Prefixo base aplicado aos objetos da aplicacao.",
+                    min_length=1,
+                    max_length=1024,
+                )
+                url_expires_seconds: int = Field(
+                    3_600,
+                    description="Duracao padrao de URLs assinadas, em segundos.",
+                    ge=1,
+                    le=604_800,
+                )
+                max_url_expires_seconds: int = Field(
+                    86_400,
+                    description="Duracao maxima permitida para URLs assinadas.",
+                    ge=1,
+                    le=604_800,
+                )
+                connect_timeout_seconds: int = Field(
+                    10,
+                    description="Timeout maximo para conectar ao provider.",
+                    ge=1,
+                    le=300,
+                )
+                read_timeout_seconds: int = Field(
+                    60,
+                    description="Timeout maximo para leitura no provider.",
+                    ge=1,
+                    le=3_600,
+                )
+                azure_connection_string: str | None = Field(
+                    None,
+                    description="Connection string Azure Blob vinda de variavel segura.",
+                    min_length=1,
+                    max_length=4096,
+                )
+                azure_account_url: str | None = Field(
+                    None,
+                    description="URL da conta Azure Blob.",
+                    min_length=1,
+                    max_length=2048,
+                )
+                azure_account_name: str | None = Field(
+                    None,
+                    description="Nome da conta Azure usado para gerar SAS URL.",
+                    min_length=1,
+                    max_length=128,
+                )
+                azure_account_key: str | None = Field(
+                    None,
+                    description="Chave da conta Azure usada para autenticar e gerar SAS URL.",
+                    min_length=1,
+                    max_length=2048,
+                )
+                aws_region_name: str = Field(
+                    "us-east-1",
+                    description="Regiao AWS usada pelo client S3.",
+                    min_length=1,
+                    max_length=64,
+                )
+                aws_access_key_id: str | None = Field(
+                    None,
+                    description="Access key AWS vinda de variavel segura.",
+                    min_length=1,
+                    max_length=256,
+                )
+                aws_secret_access_key: str | None = Field(
+                    None,
+                    description="Secret key AWS vinda de variavel segura.",
+                    min_length=1,
+                    max_length=512,
+                )
+                aws_session_token: str | None = Field(
+                    None,
+                    description="Token de sessao AWS opcional.",
+                    min_length=1,
+                    max_length=4096,
+                )
+                aws_endpoint_url: str | None = Field(
+                    None,
+                    description="Endpoint S3 customizado, util para LocalStack ou MinIO.",
+                    min_length=1,
+                    max_length=2048,
                 )
             ''',
         ),
@@ -2275,6 +2597,1040 @@ def build_file_templates() -> list[FileTemplate]:
         FileTemplate(
             "src/repositories/__init__.py",
             '"""Repositories da aplicacao."""\n',
+        ),
+        FileTemplate(
+            "src/repositories/object_storage/__init__.py",
+            '"""Repositories para object storage."""\n',
+        ),
+        FileTemplate(
+            "src/repositories/object_storage/models.py",
+            '''
+            """Modelos internos usados pelos repositories de object storage."""
+
+            from __future__ import annotations
+
+            from dataclasses import dataclass
+            from datetime import datetime
+            from typing import Literal
+
+
+            ObjectStorageAccessPermission = Literal["read", "write"]
+
+
+            @dataclass(frozen=True, slots=True)
+            class ObjectStorageMetadata:
+                """Representa metadados tecnicos de um objeto armazenado."""
+
+                key: str
+                size: int
+                content_type: str | None = None
+                etag: str | None = None
+                last_modified: datetime | None = None
+                metadata: dict[str, str] | None = None
+
+
+            @dataclass(frozen=True, slots=True)
+            class ObjectStorageItem:
+                """Representa um item listado em object storage."""
+
+                key: str
+                size: int
+                etag: str | None = None
+                last_modified: datetime | None = None
+            ''',
+        ),
+        FileTemplate(
+            "src/repositories/object_storage/exceptions.py",
+            '''
+            """Excecoes tecnicas comuns para repositories de object storage."""
+
+
+            class ObjectStorageError(RuntimeError):
+                """Erro base para falhas tecnicas de object storage."""
+
+
+            class ObjectStorageConfigurationError(ObjectStorageError):
+                """Indica configuracao ausente ou invalida para object storage."""
+
+
+            class ObjectStorageNotFoundError(ObjectStorageError):
+                """Indica que o objeto solicitado nao foi encontrado."""
+
+
+            class ObjectStoragePermissionError(ObjectStorageError):
+                """Indica falha de permissao no provider de object storage."""
+
+
+            class ObjectStorageConflictError(ObjectStorageError):
+                """Indica conflito tecnico ao executar operacao de object storage."""
+
+
+            class ObjectStorageTransientError(ObjectStorageError):
+                """Indica falha transiente do provider de object storage."""
+            ''',
+        ),
+        FileTemplate(
+            "src/repositories/object_storage/paths.py",
+            '''
+            """Normaliza chaves e prefixos para providers de object storage."""
+
+
+            def resolve_object_key(key: str, base_prefix: str | None = None) -> str:
+                """Resolve uma chave de objeto aplicando o prefixo base."""
+
+                normalized_key = key.lstrip("/")
+                if not normalized_key.strip("/"):
+                    raise ValueError("A chave do objeto nao pode ser vazia.")
+
+                normalized_base = (base_prefix or "").strip("/")
+                if not normalized_base:
+                    return normalized_key
+
+                return f"{normalized_base}/{normalized_key}"
+
+
+            def resolve_folder_prefix(prefix: str, base_prefix: str | None = None) -> str:
+                """Resolve um prefixo de pasta virtual aplicando o prefixo base."""
+
+                normalized_prefix = prefix.strip("/")
+                normalized_base = (base_prefix or "").strip("/")
+                parts = [part for part in (normalized_base, normalized_prefix) if part]
+                resolved = "/".join(parts)
+                if not resolved:
+                    return ""
+
+                return f"{resolved}/"
+
+
+            def remove_base_prefix(key: str, base_prefix: str | None = None) -> str:
+                """Remove o prefixo base de uma chave fisica retornada pelo provider."""
+
+                normalized_base = (base_prefix or "").strip("/")
+                if not normalized_base:
+                    return key
+
+                base = f"{normalized_base}/"
+                if key.startswith(base):
+                    return key[len(base) :]
+
+                return key
+            ''',
+        ),
+        FileTemplate(
+            "src/repositories/object_storage/interface.py",
+            '''
+            """Define contrato comum para repositories de object storage."""
+
+            from __future__ import annotations
+
+            from collections.abc import Mapping
+            from typing import Protocol
+
+            from src.repositories.object_storage.models import (
+                ObjectStorageAccessPermission,
+                ObjectStorageItem,
+                ObjectStorageMetadata,
+            )
+
+
+            class ObjectStorageRepository(Protocol):
+                """Contrato tecnico assincrono para object storage."""
+
+                async def upload_object(
+                    self,
+                    key: str,
+                    content: bytes,
+                    *,
+                    content_type: str | None = None,
+                    metadata: Mapping[str, str] | None = None,
+                    overwrite: bool = True,
+                ) -> ObjectStorageMetadata:
+                    """Envia um objeto para o provider configurado.
+
+                    Parameters
+                    ----------
+                    key : str
+                        Chave tecnica do objeto.
+                    content : bytes
+                        Conteudo bruto a ser armazenado.
+                    content_type : str | None
+                        Tipo de conteudo opcional.
+                    metadata : Mapping[str, str] | None
+                        Metadados tecnicos opcionais.
+                    overwrite : bool
+                        Indica se um objeto existente pode ser sobrescrito.
+
+                    Returns
+                    -------
+                    ObjectStorageMetadata
+                        Metadados tecnicos do objeto enviado.
+                    """
+
+                async def download_object(self, key: str) -> bytes:
+                    """Baixa o conteudo bruto de um objeto.
+
+                    Parameters
+                    ----------
+                    key : str
+                        Chave tecnica do objeto.
+
+                    Returns
+                    -------
+                    bytes
+                        Conteudo bruto armazenado.
+                    """
+
+                async def object_exists(self, key: str) -> bool:
+                    """Indica se um objeto existe no provider.
+
+                    Parameters
+                    ----------
+                    key : str
+                        Chave tecnica do objeto.
+
+                    Returns
+                    -------
+                    bool
+                        `True` quando o objeto existir.
+                    """
+
+                async def get_object_metadata(self, key: str) -> ObjectStorageMetadata:
+                    """Busca metadados tecnicos de um objeto.
+
+                    Parameters
+                    ----------
+                    key : str
+                        Chave tecnica do objeto.
+
+                    Returns
+                    -------
+                    ObjectStorageMetadata
+                        Metadados tecnicos do objeto.
+                    """
+
+                async def list_objects(
+                    self,
+                    prefix: str = "",
+                    *,
+                    limit: int | None = None,
+                ) -> list[ObjectStorageItem]:
+                    """Lista objetos por prefixo tecnico.
+
+                    Parameters
+                    ----------
+                    prefix : str
+                        Prefixo usado para filtrar objetos.
+                    limit : int | None
+                        Quantidade maxima de itens retornados.
+
+                    Returns
+                    -------
+                    list[ObjectStorageItem]
+                        Objetos encontrados.
+                    """
+
+                async def delete_object(self, key: str) -> None:
+                    """Remove um objeto do provider.
+
+                    Parameters
+                    ----------
+                    key : str
+                        Chave tecnica do objeto.
+                    """
+
+                async def create_folder(self, prefix: str) -> None:
+                    """Cria uma pasta virtual por meio de marcador de prefixo.
+
+                    Parameters
+                    ----------
+                    prefix : str
+                        Prefixo da pasta virtual.
+                    """
+
+                async def delete_folder(self, prefix: str) -> int:
+                    """Remove objetos abaixo de uma pasta virtual.
+
+                    Parameters
+                    ----------
+                    prefix : str
+                        Prefixo da pasta virtual.
+
+                    Returns
+                    -------
+                    int
+                        Quantidade de objetos removidos.
+                    """
+
+                async def create_access_url(
+                    self,
+                    key: str,
+                    *,
+                    permission: ObjectStorageAccessPermission = "read",
+                    expires_in_seconds: int | None = None,
+                    content_type: str | None = None,
+                ) -> str:
+                    """Cria uma URL assinada para acesso temporario ao objeto.
+
+                    Parameters
+                    ----------
+                    key : str
+                        Chave tecnica do objeto.
+                    permission : ObjectStorageAccessPermission
+                        Permissao concedida pela URL.
+                    expires_in_seconds : int | None
+                        Duracao em segundos. Quando omitida, usa o default configurado.
+                    content_type : str | None
+                        Tipo de conteudo esperado para URLs de escrita.
+
+                    Returns
+                    -------
+                    str
+                        URL assinada pelo provider.
+                    """
+            ''',
+        ),
+        FileTemplate(
+            "src/repositories/object_storage/azure_blob.py",
+            '''
+            """Implementa object storage usando Azure Blob."""
+
+            from __future__ import annotations
+
+            from collections.abc import Mapping
+            from datetime import datetime, timedelta, timezone
+            from typing import Any
+
+            from azure.core.exceptions import (
+                AzureError,
+                ClientAuthenticationError,
+                ResourceExistsError,
+                ResourceNotFoundError,
+                ServiceRequestError,
+                ServiceResponseError,
+            )
+            from azure.storage.blob import BlobSasPermissions, ContentSettings, generate_blob_sas
+
+            from src.repositories.object_storage.exceptions import (
+                ObjectStorageConfigurationError,
+                ObjectStorageConflictError,
+                ObjectStorageNotFoundError,
+                ObjectStoragePermissionError,
+                ObjectStorageTransientError,
+            )
+            from src.repositories.object_storage.models import (
+                ObjectStorageAccessPermission,
+                ObjectStorageItem,
+                ObjectStorageMetadata,
+            )
+            from src.repositories.object_storage.paths import (
+                remove_base_prefix,
+                resolve_folder_prefix,
+                resolve_object_key,
+            )
+
+
+            class AzureBlobStorageRepository:
+                """Executa operacoes tecnicas de object storage no Azure Blob.
+
+                Parameters
+                ----------
+                blob_service_client : Any
+                    Client assincrono `BlobServiceClient` configurado pela camada de configs.
+                container_name : str
+                    Nome do container usado pela aplicacao.
+                base_prefix : str | None
+                    Prefixo base aplicado a todas as chaves.
+                account_name : str | None
+                    Nome da conta Azure usado para gerar SAS URL.
+                account_key : str | None
+                    Chave da conta Azure usada para gerar SAS URL.
+                default_url_expires_seconds : int
+                    Duracao padrao de URLs assinadas.
+                max_url_expires_seconds : int
+                    Duracao maxima permitida para URLs assinadas.
+                """
+
+                def __init__(
+                    self,
+                    blob_service_client: Any,
+                    *,
+                    container_name: str,
+                    base_prefix: str | None = None,
+                    account_name: str | None = None,
+                    account_key: str | None = None,
+                    default_url_expires_seconds: int = 3_600,
+                    max_url_expires_seconds: int = 86_400,
+                ) -> None:
+                    self._client = blob_service_client
+                    self._container_name = container_name
+                    self._base_prefix = base_prefix
+                    self._account_name = account_name
+                    self._account_key = account_key
+                    self._default_url_expires_seconds = default_url_expires_seconds
+                    self._max_url_expires_seconds = max_url_expires_seconds
+
+                async def upload_object(
+                    self,
+                    key: str,
+                    content: bytes,
+                    *,
+                    content_type: str | None = None,
+                    metadata: Mapping[str, str] | None = None,
+                    overwrite: bool = True,
+                ) -> ObjectStorageMetadata:
+                    """Envia um objeto para o Azure Blob."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+                    blob_client = self._client.get_blob_client(
+                        container=self._container_name,
+                        blob=object_key,
+                    )
+                    content_settings = (
+                        ContentSettings(content_type=content_type) if content_type else None
+                    )
+
+                    try:
+                        await blob_client.upload_blob(
+                            data=content,
+                            overwrite=overwrite,
+                            content_settings=content_settings,
+                            metadata=dict(metadata or {}),
+                        )
+                        return await self.get_object_metadata(key=key)
+                    except ResourceExistsError as exc:
+                        raise ObjectStorageConflictError(
+                            "Objeto ja existe no Azure Blob.",
+                        ) from exc
+                    except ClientAuthenticationError as exc:
+                        raise ObjectStoragePermissionError(
+                            "Permissao negada pelo Azure Blob.",
+                        ) from exc
+                    except (ServiceRequestError, ServiceResponseError) as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha transiente ao enviar objeto para Azure Blob.",
+                        ) from exc
+                    except AzureError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha tecnica ao enviar objeto para Azure Blob.",
+                        ) from exc
+
+                async def download_object(self, key: str) -> bytes:
+                    """Baixa o conteudo bruto de um objeto no Azure Blob."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+                    blob_client = self._client.get_blob_client(
+                        container=self._container_name,
+                        blob=object_key,
+                    )
+
+                    try:
+                        stream = await blob_client.download_blob()
+                        return await stream.readall()
+                    except ResourceNotFoundError as exc:
+                        raise ObjectStorageNotFoundError(
+                            "Objeto nao encontrado no Azure Blob.",
+                        ) from exc
+                    except ClientAuthenticationError as exc:
+                        raise ObjectStoragePermissionError(
+                            "Permissao negada pelo Azure Blob.",
+                        ) from exc
+                    except (ServiceRequestError, ServiceResponseError) as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha transiente ao baixar objeto do Azure Blob.",
+                        ) from exc
+                    except AzureError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha tecnica ao baixar objeto do Azure Blob.",
+                        ) from exc
+
+                async def object_exists(self, key: str) -> bool:
+                    """Indica se um objeto existe no Azure Blob."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+                    blob_client = self._client.get_blob_client(
+                        container=self._container_name,
+                        blob=object_key,
+                    )
+
+                    try:
+                        return await blob_client.exists()
+                    except ClientAuthenticationError as exc:
+                        raise ObjectStoragePermissionError(
+                            "Permissao negada pelo Azure Blob.",
+                        ) from exc
+                    except AzureError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha tecnica ao verificar objeto no Azure Blob.",
+                        ) from exc
+
+                async def get_object_metadata(self, key: str) -> ObjectStorageMetadata:
+                    """Busca metadados tecnicos de um objeto no Azure Blob."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+                    blob_client = self._client.get_blob_client(
+                        container=self._container_name,
+                        blob=object_key,
+                    )
+
+                    try:
+                        properties = await blob_client.get_blob_properties()
+                    except ResourceNotFoundError as exc:
+                        raise ObjectStorageNotFoundError(
+                            "Objeto nao encontrado no Azure Blob.",
+                        ) from exc
+                    except ClientAuthenticationError as exc:
+                        raise ObjectStoragePermissionError(
+                            "Permissao negada pelo Azure Blob.",
+                        ) from exc
+                    except AzureError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha tecnica ao buscar metadados no Azure Blob.",
+                        ) from exc
+
+                    content_settings = getattr(properties, "content_settings", None)
+                    return ObjectStorageMetadata(
+                        key=key,
+                        size=int(getattr(properties, "size", 0) or 0),
+                        content_type=getattr(content_settings, "content_type", None),
+                        etag=getattr(properties, "etag", None),
+                        last_modified=getattr(properties, "last_modified", None),
+                        metadata=dict(getattr(properties, "metadata", {}) or {}),
+                    )
+
+                async def list_objects(
+                    self,
+                    prefix: str = "",
+                    *,
+                    limit: int | None = None,
+                ) -> list[ObjectStorageItem]:
+                    """Lista objetos por prefixo tecnico no Azure Blob."""
+
+                    resolved_prefix = resolve_folder_prefix(
+                        prefix=prefix,
+                        base_prefix=self._base_prefix,
+                    )
+                    container_client = self._client.get_container_client(self._container_name)
+                    items: list[ObjectStorageItem] = []
+
+                    try:
+                        async for blob in container_client.list_blobs(
+                            name_starts_with=resolved_prefix,
+                        ):
+                            items.append(
+                                ObjectStorageItem(
+                                    key=remove_base_prefix(
+                                        key=str(blob.name),
+                                        base_prefix=self._base_prefix,
+                                    ),
+                                    size=int(getattr(blob, "size", 0) or 0),
+                                    etag=getattr(blob, "etag", None),
+                                    last_modified=getattr(blob, "last_modified", None),
+                                ),
+                            )
+                            if limit is not None and len(items) >= limit:
+                                break
+                    except ClientAuthenticationError as exc:
+                        raise ObjectStoragePermissionError(
+                            "Permissao negada pelo Azure Blob.",
+                        ) from exc
+                    except AzureError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha tecnica ao listar objetos no Azure Blob.",
+                        ) from exc
+
+                    return items
+
+                async def delete_object(self, key: str) -> None:
+                    """Remove um objeto do Azure Blob."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+                    blob_client = self._client.get_blob_client(
+                        container=self._container_name,
+                        blob=object_key,
+                    )
+
+                    try:
+                        await blob_client.delete_blob()
+                    except ResourceNotFoundError:
+                        return
+                    except ClientAuthenticationError as exc:
+                        raise ObjectStoragePermissionError(
+                            "Permissao negada pelo Azure Blob.",
+                        ) from exc
+                    except AzureError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha tecnica ao remover objeto do Azure Blob.",
+                        ) from exc
+
+                async def create_folder(self, prefix: str) -> None:
+                    """Cria uma pasta virtual no Azure Blob."""
+
+                    folder_key = prefix.strip("/")
+                    if not folder_key:
+                        raise ValueError("O prefixo da pasta nao pode ser vazio.")
+
+                    await self.upload_object(key=f"{folder_key}/", content=b"", overwrite=True)
+
+                async def delete_folder(self, prefix: str) -> int:
+                    """Remove objetos abaixo de uma pasta virtual no Azure Blob."""
+
+                    objects = await self.list_objects(prefix=prefix)
+                    for item in objects:
+                        await self.delete_object(key=item.key)
+
+                    return len(objects)
+
+                async def create_access_url(
+                    self,
+                    key: str,
+                    *,
+                    permission: ObjectStorageAccessPermission = "read",
+                    expires_in_seconds: int | None = None,
+                    content_type: str | None = None,
+                ) -> str:
+                    """Cria uma SAS URL temporaria para um blob."""
+
+                    del content_type
+
+                    if not self._account_key:
+                        raise ObjectStorageConfigurationError(
+                            "Configure OBJECT_STORAGE__AZURE_ACCOUNT_KEY para gerar SAS URL.",
+                        )
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+                    blob_client = self._client.get_blob_client(
+                        container=self._container_name,
+                        blob=object_key,
+                    )
+                    account_name = self._account_name or getattr(blob_client, "account_name", None)
+                    if not account_name:
+                        raise ObjectStorageConfigurationError(
+                            "Configure OBJECT_STORAGE__AZURE_ACCOUNT_NAME para gerar SAS URL.",
+                        )
+
+                    ttl = self._resolve_url_ttl(expires_in_seconds=expires_in_seconds)
+                    starts_at = datetime.now(timezone.utc)
+                    expires_at = starts_at + timedelta(seconds=ttl)
+                    sas_token = generate_blob_sas(
+                        account_name=account_name,
+                        container_name=self._container_name,
+                        blob_name=object_key,
+                        account_key=self._account_key,
+                        permission=BlobSasPermissions(
+                            read=permission == "read",
+                            write=permission == "write",
+                            create=permission == "write",
+                        ),
+                        start=starts_at,
+                        expiry=expires_at,
+                    )
+                    return f"{blob_client.url}?{sas_token}"
+
+                def _resolve_url_ttl(self, expires_in_seconds: int | None) -> int:
+                    """Resolve a duracao efetiva de uma URL assinada."""
+
+                    requested_ttl = expires_in_seconds or self._default_url_expires_seconds
+                    if requested_ttl <= 0:
+                        raise ValueError("A expiracao da URL deve ser positiva.")
+
+                    return min(requested_ttl, self._max_url_expires_seconds)
+            ''',
+        ),
+        FileTemplate(
+            "src/repositories/object_storage/aws_s3.py",
+            '''
+            """Implementa object storage usando AWS S3."""
+
+            from __future__ import annotations
+
+            from collections.abc import Mapping
+            from typing import Any
+
+            from botocore.exceptions import ClientError, EndpointConnectionError
+
+            from src.repositories.object_storage.exceptions import (
+                ObjectStorageConflictError,
+                ObjectStorageNotFoundError,
+                ObjectStoragePermissionError,
+                ObjectStorageTransientError,
+            )
+            from src.repositories.object_storage.models import (
+                ObjectStorageAccessPermission,
+                ObjectStorageItem,
+                ObjectStorageMetadata,
+            )
+            from src.repositories.object_storage.paths import (
+                remove_base_prefix,
+                resolve_folder_prefix,
+                resolve_object_key,
+            )
+
+
+            class AwsS3ObjectStorageRepository:
+                """Executa operacoes tecnicas de object storage no AWS S3.
+
+                Parameters
+                ----------
+                s3_client : Any
+                    Client assincrono S3 configurado pela camada de configs.
+                bucket_name : str
+                    Nome do bucket usado pela aplicacao.
+                base_prefix : str | None
+                    Prefixo base aplicado a todas as chaves.
+                default_url_expires_seconds : int
+                    Duracao padrao de URLs assinadas.
+                max_url_expires_seconds : int
+                    Duracao maxima permitida para URLs assinadas.
+                """
+
+                def __init__(
+                    self,
+                    s3_client: Any,
+                    *,
+                    bucket_name: str,
+                    base_prefix: str | None = None,
+                    default_url_expires_seconds: int = 3_600,
+                    max_url_expires_seconds: int = 86_400,
+                ) -> None:
+                    self._client = s3_client
+                    self._bucket_name = bucket_name
+                    self._base_prefix = base_prefix
+                    self._default_url_expires_seconds = default_url_expires_seconds
+                    self._max_url_expires_seconds = max_url_expires_seconds
+
+                async def upload_object(
+                    self,
+                    key: str,
+                    content: bytes,
+                    *,
+                    content_type: str | None = None,
+                    metadata: Mapping[str, str] | None = None,
+                    overwrite: bool = True,
+                ) -> ObjectStorageMetadata:
+                    """Envia um objeto para o AWS S3."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+                    if not overwrite and await self.object_exists(key=key):
+                        raise ObjectStorageConflictError("Objeto ja existe no AWS S3.")
+
+                    params: dict[str, Any] = {
+                        "Bucket": self._bucket_name,
+                        "Key": object_key,
+                        "Body": content,
+                        "Metadata": dict(metadata or {}),
+                    }
+                    if content_type:
+                        params["ContentType"] = content_type
+
+                    try:
+                        await self._client.put_object(**params)
+                        return await self.get_object_metadata(key=key)
+                    except ClientError as exc:
+                        self._raise_client_error(
+                            exc=exc,
+                            transient_message="Falha tecnica ao enviar objeto para AWS S3.",
+                        )
+                    except EndpointConnectionError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha de conexao ao enviar objeto para AWS S3.",
+                        ) from exc
+
+                async def download_object(self, key: str) -> bytes:
+                    """Baixa o conteudo bruto de um objeto no AWS S3."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+
+                    try:
+                        response = await self._client.get_object(
+                            Bucket=self._bucket_name,
+                            Key=object_key,
+                        )
+                        async with response["Body"] as stream:
+                            return await stream.read()
+                    except ClientError as exc:
+                        self._raise_client_error(
+                            exc=exc,
+                            not_found_message="Objeto nao encontrado no AWS S3.",
+                            transient_message="Falha tecnica ao baixar objeto do AWS S3.",
+                        )
+                    except EndpointConnectionError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha de conexao ao baixar objeto do AWS S3.",
+                        ) from exc
+
+                async def object_exists(self, key: str) -> bool:
+                    """Indica se um objeto existe no AWS S3."""
+
+                    try:
+                        await self.get_object_metadata(key=key)
+                    except ObjectStorageNotFoundError:
+                        return False
+
+                    return True
+
+                async def get_object_metadata(self, key: str) -> ObjectStorageMetadata:
+                    """Busca metadados tecnicos de um objeto no AWS S3."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+
+                    try:
+                        response = await self._client.head_object(
+                            Bucket=self._bucket_name,
+                            Key=object_key,
+                        )
+                    except ClientError as exc:
+                        self._raise_client_error(
+                            exc=exc,
+                            not_found_message="Objeto nao encontrado no AWS S3.",
+                            transient_message="Falha tecnica ao buscar metadados no AWS S3.",
+                        )
+                    except EndpointConnectionError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha de conexao ao buscar metadados no AWS S3.",
+                        ) from exc
+
+                    return ObjectStorageMetadata(
+                        key=key,
+                        size=int(response.get("ContentLength", 0) or 0),
+                        content_type=response.get("ContentType"),
+                        etag=response.get("ETag"),
+                        last_modified=response.get("LastModified"),
+                        metadata=dict(response.get("Metadata", {}) or {}),
+                    )
+
+                async def list_objects(
+                    self,
+                    prefix: str = "",
+                    *,
+                    limit: int | None = None,
+                ) -> list[ObjectStorageItem]:
+                    """Lista objetos por prefixo tecnico no AWS S3."""
+
+                    resolved_prefix = resolve_folder_prefix(
+                        prefix=prefix,
+                        base_prefix=self._base_prefix,
+                    )
+                    items: list[ObjectStorageItem] = []
+                    continuation_token: str | None = None
+
+                    try:
+                        while True:
+                            page_size = min(limit - len(items), 1000) if limit else 1000
+                            params: dict[str, Any] = {
+                                "Bucket": self._bucket_name,
+                                "Prefix": resolved_prefix,
+                                "MaxKeys": page_size,
+                            }
+                            if continuation_token:
+                                params["ContinuationToken"] = continuation_token
+
+                            response = await self._client.list_objects_v2(**params)
+                            for item in response.get("Contents", []):
+                                items.append(
+                                    ObjectStorageItem(
+                                        key=remove_base_prefix(
+                                            key=str(item["Key"]),
+                                            base_prefix=self._base_prefix,
+                                        ),
+                                        size=int(item.get("Size", 0) or 0),
+                                        etag=item.get("ETag"),
+                                        last_modified=item.get("LastModified"),
+                                    ),
+                                )
+
+                            if limit is not None and len(items) >= limit:
+                                return items
+                            if not response.get("IsTruncated"):
+                                return items
+
+                            continuation_token = response.get("NextContinuationToken")
+                    except ClientError as exc:
+                        self._raise_client_error(
+                            exc=exc,
+                            transient_message="Falha tecnica ao listar objetos no AWS S3.",
+                        )
+                    except EndpointConnectionError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha de conexao ao listar objetos no AWS S3.",
+                        ) from exc
+
+                async def delete_object(self, key: str) -> None:
+                    """Remove um objeto do AWS S3."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+
+                    try:
+                        await self._client.delete_object(Bucket=self._bucket_name, Key=object_key)
+                    except ClientError as exc:
+                        self._raise_client_error(
+                            exc=exc,
+                            transient_message="Falha tecnica ao remover objeto do AWS S3.",
+                        )
+                    except EndpointConnectionError as exc:
+                        raise ObjectStorageTransientError(
+                            "Falha de conexao ao remover objeto do AWS S3.",
+                        ) from exc
+
+                async def create_folder(self, prefix: str) -> None:
+                    """Cria uma pasta virtual no AWS S3."""
+
+                    folder_key = prefix.strip("/")
+                    if not folder_key:
+                        raise ValueError("O prefixo da pasta nao pode ser vazio.")
+
+                    await self.upload_object(key=f"{folder_key}/", content=b"", overwrite=True)
+
+                async def delete_folder(self, prefix: str) -> int:
+                    """Remove objetos abaixo de uma pasta virtual no AWS S3."""
+
+                    objects = await self.list_objects(prefix=prefix)
+                    if not objects:
+                        return 0
+
+                    for start in range(0, len(objects), 1000):
+                        chunk = objects[start : start + 1000]
+                        await self._client.delete_objects(
+                            Bucket=self._bucket_name,
+                            Delete={
+                                "Objects": [{"Key": item.key} for item in chunk],
+                                "Quiet": True,
+                            },
+                        )
+
+                    return len(objects)
+
+                async def create_access_url(
+                    self,
+                    key: str,
+                    *,
+                    permission: ObjectStorageAccessPermission = "read",
+                    expires_in_seconds: int | None = None,
+                    content_type: str | None = None,
+                ) -> str:
+                    """Cria uma presigned URL temporaria para um objeto S3."""
+
+                    object_key = resolve_object_key(key=key, base_prefix=self._base_prefix)
+                    ttl = self._resolve_url_ttl(expires_in_seconds=expires_in_seconds)
+                    client_method = "get_object" if permission == "read" else "put_object"
+                    params: dict[str, Any] = {
+                        "Bucket": self._bucket_name,
+                        "Key": object_key,
+                    }
+                    if permission == "write" and content_type:
+                        params["ContentType"] = content_type
+
+                    return await self._client.generate_presigned_url(
+                        ClientMethod=client_method,
+                        Params=params,
+                        ExpiresIn=ttl,
+                        HttpMethod="GET" if permission == "read" else "PUT",
+                    )
+
+                def _resolve_url_ttl(self, expires_in_seconds: int | None) -> int:
+                    """Resolve a duracao efetiva de uma URL assinada."""
+
+                    requested_ttl = expires_in_seconds or self._default_url_expires_seconds
+                    if requested_ttl <= 0:
+                        raise ValueError("A expiracao da URL deve ser positiva.")
+
+                    return min(requested_ttl, self._max_url_expires_seconds)
+
+                def _raise_client_error(
+                    self,
+                    *,
+                    exc: ClientError,
+                    not_found_message: str = "Objeto nao encontrado no AWS S3.",
+                    transient_message: str,
+                ) -> None:
+                    """Traduz erro do botocore para excecao tecnica conhecida."""
+
+                    error_code = str(exc.response.get("Error", {}).get("Code", ""))
+                    if error_code in {"404", "NoSuchKey", "NotFound"}:
+                        raise ObjectStorageNotFoundError(not_found_message) from exc
+                    if error_code in {"401", "403", "AccessDenied", "InvalidAccessKeyId"}:
+                        raise ObjectStoragePermissionError(
+                            "Permissao negada pelo AWS S3.",
+                        ) from exc
+                    if error_code in {"BucketAlreadyExists", "BucketAlreadyOwnedByYou"}:
+                        raise ObjectStorageConflictError(
+                            "Conflito tecnico no AWS S3.",
+                        ) from exc
+
+                    raise ObjectStorageTransientError(transient_message) from exc
+            ''',
+        ),
+        FileTemplate(
+            "src/repositories/object_storage/factory.py",
+            '''
+            """Cria repositories de object storage a partir de settings e clients."""
+
+            from __future__ import annotations
+
+            from typing import Any
+
+            from src.configs.settings import Settings
+            from src.repositories.object_storage.exceptions import (
+                ObjectStorageConfigurationError,
+            )
+            from src.repositories.object_storage.interface import ObjectStorageRepository
+
+
+            def build_object_storage_repository(
+                *,
+                client: Any,
+                settings: Settings,
+            ) -> ObjectStorageRepository:
+                """Cria repository de object storage para o provider configurado.
+
+                Parameters
+                ----------
+                client : Any
+                    Client assincrono criado pela camada de configs.
+                settings : Settings
+                    Configuracoes finais da aplicacao.
+
+                Returns
+                -------
+                ObjectStorageRepository
+                    Repository tecnico do provider configurado.
+                """
+
+                storage_settings = settings.object_storage
+                if storage_settings.provider == "azure_blob":
+                    if not storage_settings.container_name:
+                        raise ObjectStorageConfigurationError(
+                            "Configure OBJECT_STORAGE__CONTAINER_NAME para usar Azure Blob.",
+                        )
+
+                    from src.repositories.object_storage.azure_blob import (
+                        AzureBlobStorageRepository,
+                    )
+
+                    return AzureBlobStorageRepository(
+                        client,
+                        container_name=storage_settings.container_name,
+                        base_prefix=storage_settings.base_prefix,
+                        account_name=storage_settings.azure_account_name,
+                        account_key=storage_settings.azure_account_key,
+                        default_url_expires_seconds=storage_settings.url_expires_seconds,
+                        max_url_expires_seconds=storage_settings.max_url_expires_seconds,
+                    )
+
+                if not storage_settings.bucket_name:
+                    raise ObjectStorageConfigurationError(
+                        "Configure OBJECT_STORAGE__BUCKET_NAME para usar AWS S3.",
+                    )
+
+                from src.repositories.object_storage.aws_s3 import AwsS3ObjectStorageRepository
+
+                return AwsS3ObjectStorageRepository(
+                    client,
+                    bucket_name=storage_settings.bucket_name,
+                    base_prefix=storage_settings.base_prefix,
+                    default_url_expires_seconds=storage_settings.url_expires_seconds,
+                    max_url_expires_seconds=storage_settings.max_url_expires_seconds,
+                )
+            ''',
         ),
         FileTemplate(
             "src/routes/__init__.py",
