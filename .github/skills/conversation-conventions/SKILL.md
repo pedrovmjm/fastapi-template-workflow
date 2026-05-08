@@ -6,6 +6,16 @@ description: Analisa a conversa com o usuário para identificar regras, convenç
 
 Use esta skill quando a conversa revelar uma regra, convenção, preferência ou correção que deve ser preservada para trabalhos futuros.
 
+## Tabela de Decisão - Destinos
+
+| Quando o feedback indicar | Atualize | Decisão de ownership |
+| --- | --- | --- |
+| Regra central de uma skill existente | O `SKILL.md` da skill mais específica | A regra altera gatilhos, responsabilidades, checklist ou fluxo principal. |
+| Detalhe extenso, situacional ou ligado a uma etapa | Um arquivo em `references/` da skill responsável | A regra aprofunda uma decisão sem poluir o contrato principal da skill. |
+| Convenção da base de código, arquitetura, estrutura, testes ou operação | `.specs/codebase/CONVENTIONS.md` ou documento equivalente | A regra descreve o projeto, não uma skill isolada. |
+| Preferência pontual da tarefa atual | Apenas o plano, resumo ou resposta da tarefa | A regra não deve virar padrão reutilizável. |
+| Regra ambígua ou conflitante | Pergunte antes de editar | A decisão precisa de confirmação explícita do usuário. |
+
 ## Objetivo
 
 Transformar feedback do usuário em melhoria reutilizável, decidindo se a regra deve:
