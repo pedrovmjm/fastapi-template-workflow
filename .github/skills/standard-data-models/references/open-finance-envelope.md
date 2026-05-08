@@ -119,7 +119,7 @@ from src.models.common.data.links import Links
 from src.models.common.data.pagination_meta import PaginationMeta
 
 
-class DataWrapperUsersResponse(BaseModel):
+class UserCollectionResponse(BaseModel):
     """Envelope de dados para resposta de listagem de usuários.
 
     Notes

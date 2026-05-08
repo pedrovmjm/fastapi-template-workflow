@@ -16,7 +16,8 @@ Esta skill é dona de:
 - limites mínimos e máximos por tipo;
 - envelopes de response com `data`, `meta` e `links`;
 - modelos de paginação inspirados em Open Finance;
-- exemplos de request e response.
+- exemplos de request e response;
+- fronteira entre modelos públicos Pydantic e modelos internos de persistência.
 
 Esta skill não é dona de:
 
@@ -33,10 +34,11 @@ Esta skill não é dona de:
 | Quando definir validação e documentação de campos Pydantic. | [Regras de campos Pydantic](references/field-rules.md) |
 | Quando separar modelos de entrada e saída HTTP. | [Contratos request e response](references/request-response-contracts.md) |
 | Quando montar envelopes públicos com data, meta, links ou paginação. | [Envelopes, meta, links e paginação](references/open-finance-envelope.md) |
+| Quando definir modelos de dados usados pelo banco de dados. | [Modelos de dados e persistência](references/persistence-data-models.md) |
 
 ## Regras Obrigatórias
 
-- Todos os modelos Pydantic devem ficar dentro de um pacote `data`.
+- Todos os modelos Pydantic públicos de contrato HTTP devem ficar dentro de um pacote `data`.
 - Um arquivo deve conter preferencialmente um modelo público principal.
 - Todo campo deve usar `Field`.
 - Todo `Field` deve ter `description` clara, forte e orientada a contrato.
@@ -48,6 +50,8 @@ Esta skill não é dona de:
 - Não exponha campos sensíveis em responses.
 - Requests e responses devem ser modelos diferentes.
 - Separe arquivos/domínios apenas por intenção HTTP: request e response.
+- Modelos de banco de dados devem ser internos e não podem ser retornados diretamente por endpoint.
+- Modelos de banco de dados não devem carregar exemplos OpenAPI; exemplos pertencem aos modelos públicos de request/response.
 - Não crie arquivos/domínios ou nomes públicos próprios baseados em `DataWrapper`, `Wrapper` ou `List`.
 - Envelopes, listas e paginação que pertencem ao contrato de response devem ficar no arquivo de response do recurso, por exemplo `user_response.py`.
 
@@ -143,4 +147,6 @@ class UserEnvelopeResponse(BaseModel):
 - [ ] Strings possuem `min_length` e `max_length`.
 - [ ] Números possuem limite inferior e superior.
 - [ ] Responses não expõem dados sensíveis.
+- [ ] Modelos internos de banco não vazam para endpoints.
+- [ ] Exemplos OpenAPI ficam nos modelos públicos de request/response.
 - [ ] Envelopes, listas e paginação de response ficam no arquivo `*_response.py` do recurso.
