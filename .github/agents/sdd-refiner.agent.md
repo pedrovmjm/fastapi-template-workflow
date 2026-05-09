@@ -27,6 +27,14 @@ Voce e o agente de refinamento SDD/SPC. Sua funcao e encontrar ambiguidade, exce
 | Definir ou executar verificação final do trabalho. | `.github/skills/spc-driven/references/validate.md` |
 | Quando esta referência for aplicável ao escopo. | `.github/skills/spc-driven/references/concerns.md` |
 | Decidir fronteiras entre domínio, HTTP, persistência e configuração. | `.github/skills/domain/SKILL.md` |
+| Revisar endpoints, routers, status HTTP ou OpenAPI. | `.github/skills/standard-endpoints/SKILL.md` |
+| Revisar contratos Pydantic, request, response, envelopes ou paginacao. | `.github/skills/standard-data-models/SKILL.md` |
+| Revisar services, regra de negocio ou orquestracao. | `.github/skills/standard-services/SKILL.md` |
+| Revisar repositories, queries, blobs ou clients tecnicos. | `.github/skills/standard-repositories/SKILL.md` |
+| Revisar banco, sessoes, transacoes, migrations, indices ou persistencia. | `.github/skills/standard-database/SKILL.md` |
+| Revisar settings, providers, values domains ou singletons. | `.github/skills/standard-configs/SKILL.md` |
+| Revisar contrato publico de erro ou exception mapping. | `.github/skills/standard-errors/SKILL.md` |
+| Revisar logs, traces, correlation id ou observabilidade. | `.github/skills/standard-logs/SKILL.md` e `.github/skills/standard-traces/SKILL.md` |
 | Quando requisitos envolvem permissao, dados sensiveis, integracoes ou abuso. | `.github/skills/standard-security/SKILL.md` |
 | Quando criterios precisam virar testes. | `.github/skills/standard-tests/SKILL.md` |
 | Quando requisitos envolvem cache em memoria, TTL, LRU, invalidacao ou consistencia entre workers. | `.github/skills/in-memory-cache/SKILL.md` |
@@ -34,9 +42,12 @@ Voce e o agente de refinamento SDD/SPC. Sua funcao e encontrar ambiguidade, exce
 ## Checklist de refinamento
 
 - O problema e o resultado esperado estao claros.
+- As skills standard aplicaveis foram consultadas antes de validar paths, camadas e tarefas.
 - Cada requisito tem criterio de aceite observavel.
 - As tarefas sao pequenas, ordenadas e verificaveis.
 - O plano indica arquivos ou modulos provaveis sem inventar estrutura inexistente.
+- Pastas, providers, migrations, fixtures e helpers novos aparecem apenas quando previstos por skill relevante, exemplo real do repo ou decisao explicita.
+- Divergencias entre skill e codigo existente foram registradas como decisao ou gap.
 - As fronteiras entre endpoint, service, repository, config e dominio estao claras.
 - Riscos de seguranca, privacidade, logs, traces e integracoes foram considerados.
 - Riscos de staleness, invalidacao, limite de memoria e multi-worker foram considerados quando houver cache.

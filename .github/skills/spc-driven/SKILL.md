@@ -115,6 +115,23 @@ Planeje e implemente projetos com precisão. Tarefas granulares. Dependências c
 
 **Modo rápido:** Descrever → Implementar → Verificar → Confirmar (para ≤3 arquivos, escopo de uma frase)
 
+## Uso de Skills de Padrao no SDD
+
+Quando estiver especificando, desenhando ou quebrando tarefas em uma base que ja possui skills de padrao, o SDD deve carregar as skills existentes aplicaveis antes de propor paths, camadas ou tarefas.
+
+- Endpoints e HTTP: `standard-endpoints`.
+- Contratos Pydantic, request/response, envelopes e paginacao: `standard-data-models`.
+- Services e regra de negocio: `standard-services`.
+- Repositories, queries, blobs e clients tecnicos: `standard-repositories`.
+- Banco, sessoes, transacoes, migrations e indices: `standard-database`.
+- Settings, providers, values domains e singletons: `standard-configs`.
+- Erros publicos e exception mapping: `standard-errors`.
+- Logs e traces: `standard-logs` e `standard-traces`.
+- Testes, fixtures e gates: `standard-tests`.
+- Cache em memoria: `in-memory-cache`.
+
+Se uma skill existente ja define a convencao de um assunto, use essa skill como fonte de padrao no `spec.md`, `design.md` e `tasks.md`. Se o codigo existente divergir da skill, registre a divergencia como decisao ou gap antes de gerar tarefas. Nao invente pastas, migrations, providers, fixtures ou helpers sem skill aplicavel, exemplo real no codigo ou decisao explicita.
+
 ## Estratégia de carregamento de contexto
 
 **Carga base (~15 mil tokens):**
