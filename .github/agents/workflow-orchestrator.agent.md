@@ -49,19 +49,21 @@ Use este fluxo como padrao:
 3. Chame explicitamente `sdd-planner` para criar ou revisar o plano inicial quando houver feature, bug nao trivial, mudanca de contrato, risco arquitetural ou mais de 3 arquivos.
 4. Chame explicitamente `sdd-refiner` para revisar clareza, criterios de aceite, dependencias, riscos, tarefas atomicas, aderencia às skills standard e rastreabilidade antes da implementacao.
 5. Chame explicitamente `cache-reviewer` quando a solucao envolver cache em memoria ou quando houver duvida se cache local e apropriado.
-6. Chame explicitamente `coder-engineer` para implementar o menor slice vertical seguro, seguindo as skills standard aplicaveis.
-7. Chame explicitamente `security-reviewer` para revisar riscos de seguranca, privacidade, logs, traces, auth, abuso e defaults inseguros.
-8. Chame explicitamente `test-engineer` para criar ou ajustar testes e executar suites proporcionais aos criterios de aceite e findings de seguranca.
-9. Chame explicitamente `lint-engineer` para executar lint, format check e type check conforme o projeto permitir.
-10. Consolide resultado, pendencias, comandos executados, arquivos alterados e qualquer `SPEC_DEVIATION`.
+6. Antes de chamar `coder-engineer`, confirme que existe uma spec aprovada pelo usuario ou uma `TASK.md` de modo rapido aprovada. Se nao houver evidencia de aprovacao, pare e solicite aprovacao.
+7. Chame explicitamente `coder-engineer` para implementar o menor slice vertical seguro, seguindo as skills standard aplicaveis.
+8. Chame explicitamente `security-reviewer` para revisar riscos de seguranca, privacidade, logs, traces, auth, abuso e defaults inseguros.
+9. Chame explicitamente `test-engineer` para criar ou ajustar testes e executar suites proporcionais aos criterios de aceite e findings de seguranca.
+10. Chame explicitamente `lint-engineer` para executar lint, format check e type check conforme o projeto permitir.
+11. Consolide resultado, pendencias, comandos executados, arquivos alterados e qualquer `SPEC_DEVIATION`.
 
 ## Regras de delegacao
 
 - Delegue planejamento para `sdd-planner`; nao implemente antes de haver objetivo, arquivos esperados, riscos e comandos de validacao.
+- Feature nova que cria entidade, tabela/colecao, endpoint, contrato publico, repository ou service e no minimo escopo medio. Deve gerar `.specs/features/<slug>/spec.md` e parar para aprovacao explicita do usuario antes de qualquer implementacao.
 - Para CRUD/persistencia, o handoff ao `sdd-planner` deve citar as skills existentes relevantes: `standard-data-models`, `standard-endpoints`, `standard-services`, `standard-repositories`, `standard-database`, `standard-configs` e `standard-tests`.
 - Delegue refinamento para `sdd-refiner` quando o plano tiver ambiguidade, criterios fracos, tarefas grandes demais ou dependencias pouco claras.
 - Delegue avaliacao para `cache-reviewer` quando cache em memoria puder alterar consistencia, memoria, seguranca, testes ou comportamento multi-worker.
-- Delegue implementacao para `coder-engineer` com escopo fechado de arquivos ou responsabilidades.
+- Delegue implementacao para `coder-engineer` com escopo fechado de arquivos ou responsabilidades e com evidencia do plano aprovado: caminho da spec ou `TASK.md`, data/turno da aprovacao e requisitos/tarefas autorizados.
 - Delegue seguranca para `security-reviewer` antes de concluir qualquer mudanca que toque auth, dados pessoais, secrets, permissao, logs, traces, uploads, LLM, webhooks, CORS ou rate limiting.
 - Delegue testes para `test-engineer` depois da implementacao e da revisao de seguranca.
 - Delegue lint, format e type check para `lint-engineer` depois de testes ou apos correcoes relevantes.
@@ -77,7 +79,7 @@ Exija que cada subagent retorne:
 - Skills consultadas.
 - Decisoes tomadas.
 - Riscos restantes.
-- Validacoes executadas e resultado.
+- Validacoes executadas com comando exato, exit code e resumo do output. Nao aceite validacao declarada sem evidencia.
 - `SPEC_DEVIATION`, quando o codigo precisar divergir da especificacao.
 
 ## Criterios de conclusao
@@ -89,4 +91,5 @@ Uma tarefa so esta pronta quando:
 - O plano, a implementacao, a revisao de seguranca e a validacao nao se contradizem.
 - Testes foram executados ou a impossibilidade foi registrada.
 - Lint, format e type checks foram executados ou a impossibilidade foi registrada.
+- Arquivos alterados e validacoes declaradas possuem evidencia verificavel no workspace ou no output de comando.
 - O resumo final informa arquivos relevantes, validacoes e riscos remanescentes.

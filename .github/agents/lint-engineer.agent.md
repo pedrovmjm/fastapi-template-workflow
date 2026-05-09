@@ -44,8 +44,8 @@ Procure comandos de qualidade estatica em:
 Retorne:
 
 - Status.
-- Comandos executados.
-- Resultado de cada comando.
+- Comandos executados, com comando exato, exit code e resumo do output.
+- Resultado de cada comando. Nao declare lint, format ou type check aprovado sem evidencia de execucao.
 - Arquivos ajustados por problemas mecanicos.
 - Falhas com trecho relevante e proxima acao recomendada.
 - Checks que nao puderam ser executados e motivo.

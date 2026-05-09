@@ -69,6 +69,9 @@ Planeje e implemente projetos com precisão. Tarefas granulares. Dependências c
 - **A discussão é acionada em Especificar** somente quando o agente detecta áreas cinzentas ambíguas que precisam de entrada do usuário
 - **O UAT interativo é acionado em Executar** apenas para recursos voltados ao usuário com comportamento complexo
 - **Modo rápido** é a via expressa — para correções de bugs, alterações de configuração e pequenos ajustes
+- **Feature nova com entidade, banco, endpoint, contrato publico, repository ou service nunca e modo rapido**. Classifique como no minimo escopo medio, crie `.specs/features/[feature]/spec.md` e pare para aprovacao explicita do usuario antes de implementar.
+- **Implementacao exige evidencia de aprovacao**. Nao avance para codigo sem caminho de spec ou `TASK.md` aprovado no handoff. Se a evidencia nao existir, retorne bloqueado e solicite aprovacao.
+- **Validacao exige evidencia verificavel**. Nunca declare arquivos alterados, testes, lint, build ou revisao como concluidos sem comando executado, exit code, resumo do output ou arquivo real no workspace.
 
 **Válvula de segurança:** Mesmo quando as tarefas são ignoradas, Executar SEMPRE começa listando as etapas atômicas inline (consulte [implement.md](references/implement.md)). Se essa listagem revelar >5 etapas ou dependências complexas, PARE e crie um `tasks.md` formal — a fase de Tarefas foi ignorada indevidamente.
 

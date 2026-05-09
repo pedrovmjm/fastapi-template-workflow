@@ -58,7 +58,7 @@ Retorne:
 
 - Status.
 - Testes criados ou ajustados.
-- Comandos de teste executados.
-- Resultado de cada comando.
+- Comandos de teste executados, com comando exato, exit code e resumo do output.
+- Resultado de cada comando. Nao declare suite aprovada sem evidencia de execucao.
 - Falhas com trecho relevante e proxima acao recomendada.
 - Lacunas de cobertura ou testes que nao puderam ser executados.

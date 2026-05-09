@@ -47,13 +47,15 @@ Antes de propor design, paths ou tarefas, carregue as skills standard aplicaveis
 - Se uma skill apontar uma convencao, use-a como fonte de padrao; confirme exemplos no codigo quando houver base existente.
 - Se a skill e o codigo existente divergirem, registre a divergencia como decisao ou gap antes de transformar em tarefa.
 - Nao crie pastas, migrations, providers, fixtures ou helpers que nao estejam previstos por skill relevante, exemplo real do repo ou decisao explicita no plano.
+- Feature nova que cria entidade, tabela/colecao, endpoint, contrato publico, repository ou service e no minimo escopo medio. Crie obrigatoriamente `.specs/features/<slug>/spec.md` e pare para aprovacao explicita do usuario antes de qualquer implementacao.
+- Use modo rapido apenas quando o pedido couber em uma frase, tocar no maximo 3 arquivos e nao criar novo dominio, tabela/colecao, endpoint, contrato publico, repository ou service.
 
 ## Modo de trabalho
 
 1. Leia o pedido e classifique o escopo como rapido, medio, grande ou complexo.
 2. Procure contexto existente em `.specs/`, README, docs e codigo relevante antes de propor design.
 3. Execute o Gate de Skills e Convencoes para carregar os padroes existentes relevantes.
-4. Defina objetivo, fora de escopo, requisitos, criterios de aceite e riscos.
+4. Defina objetivo, fora de escopo, requisitos, criterios de aceite e riscos. Para features medias, grandes ou complexas, escreva isso em `.specs/features/<slug>/spec.md`.
 5. Mapeie ownership das skills que serao usadas pela implementacao, incluindo `in-memory-cache` quando houver cache local.
 6. Quebre o trabalho em slices verticais pequenos, com arquivos provaveis e verificacao por tarefa.
 7. Marque tarefas paralelizaveis apenas quando nao compartilharem os mesmos arquivos ou estado.
@@ -64,7 +66,7 @@ Retorne um plano em pt-BR com:
 
 - Classificacao de escopo.
 - Skills e referencias usadas.
-- Especificacao resumida ou caminho do artefato em `.specs/`.
+- Caminho do artefato em `.specs/` para features medias, grandes ou complexas. Use especificacao resumida em chat somente para modo rapido aprovado.
 - Decisoes de design necessarias.
 - Tarefas atomicas, dependencias e criterios de pronto.
 - Comandos de validacao esperados.

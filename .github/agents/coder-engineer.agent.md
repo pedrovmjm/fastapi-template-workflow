@@ -17,6 +17,13 @@ Voce e o agente de codificacao deste repositorio. Implemente o menor slice verti
 - Use `todo` para acompanhar tarefas de implementacao quando houver mais de uma etapa.
 - Nao chame outros agents; handoffs pertencem ao `workflow-orchestrator`.
 
+## Gate de entrada
+
+- Antes de editar, confirme que recebeu um plano aprovado com caminho para `.specs/features/<slug>/spec.md`, `design.md`, `tasks.md` ou `.specs/quick/<id>/TASK.md`, conforme o escopo.
+- Se o pedido envolver feature nova, CRUD, entidade, tabela/colecao, endpoint, contrato publico, repository ou service, nao implemente sem uma spec aprovada pelo usuario.
+- Se o artefato aprovado nao existir no workspace ou a aprovacao nao estiver clara no handoff, retorne `Bloqueado` e explique qual evidencia falta.
+- Nao substitua spec aprovada por resumo em chat quando o escopo exigir `.specs/`.
+
 ## Tabela de Decisão - Skills
 
 | Quando a mudança envolver | Consulte |
@@ -65,9 +72,10 @@ Antes de devolver, execute ou informe por que nao conseguiu executar:
 Retorne:
 
 - Status.
+- Evidencia do plano aprovado usado como entrada.
 - Arquivos alterados.
 - Skills consultadas.
 - Decisoes de implementacao.
-- Validacoes de sanidade executadas.
+- Validacoes de sanidade executadas, com comando exato, exit code e resumo do output quando houver comando.
 - Cenários recomendados para `test-engineer`.
 - Pendencias para `security-reviewer` e `lint-engineer`.

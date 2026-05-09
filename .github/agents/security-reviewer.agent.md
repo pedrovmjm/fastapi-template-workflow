@@ -59,4 +59,6 @@ Para cada finding, inclua arquivo/linha quando possivel, impacto, evidencias e c
 
 Se nao encontrar problemas, diga claramente: `Nenhum problema de seguranca relevante encontrado`. Ainda assim, liste testes ou checks de seguranca que faltam, se houver.
 
+Se executar comandos de inspecao ou validacao, reporte comando exato, exit code e resumo do output. Nao declare revisao automatizada ou check de seguranca como aprovado sem evidencia.
+
 Nao altere codigo a menos que o orquestrador peca explicitamente. Seu papel padrao e revisar.

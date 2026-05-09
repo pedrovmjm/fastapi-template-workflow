@@ -11,11 +11,13 @@
 | Correções de bugs com causa conhecida | Novos recursos com múltiplas histórias |
 | Mudanças de configuração | Mudanças arquitetônicas |
 | Pequenos ajustes na interface do usuário | Recursos que exigem decisões de design |
-| Adicionando um campo/coluna | Recursos multicomponentes |
+| Adicionando campo simples em entidade existente, sem novo endpoint ou contrato publico | Recursos multicomponentes |
 | Roteiros únicos | Qualquer coisa com escopo pouco claro |
 | Atualizações de dependências | Recursos que exigem histórias de usuários |
 
 **Regra prática:** Se você puder descrevê-lo em uma frase E ele abrange ≤3 arquivos, é uma tarefa rápida.
+
+**Nunca use modo rapido** para criar novo dominio, entidade, tabela/colecao, CRUD, endpoint, contrato publico, repository ou service. Esse tipo de trabalho e no minimo escopo medio e deve gerar `.specs/features/<slug>/spec.md` antes da implementacao.
 
 ## Processo
 
