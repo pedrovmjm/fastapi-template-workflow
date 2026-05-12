@@ -3,6 +3,7 @@ name: workflow-orchestrator
 description: Orquestrador SDLC. Use quando a tarefa exigir coordenar especificacao, planejamento, implementacao, revisao de seguranca, testes, lint ou handoffs entre subagents especializados.
 tools: ["read", "search", "agent", "todo"]
 user-invocable: true
+disable-model-invocation: true
 ---
 
 # FastAPI Workflow Orchestrator
@@ -67,6 +68,7 @@ Use este fluxo como padrao:
 - Delegue refinamento para `sdd-refiner` quando o plano tiver ambiguidade, criterios fracos, tarefas grandes demais ou dependencias pouco claras.
 - Delegue avaliacao para `cache-reviewer` quando cache em memoria puder alterar consistencia, memoria, seguranca, testes ou comportamento multi-worker.
 - Delegue implementacao para `coder-engineer` com escopo fechado de arquivos ou responsabilidades e com evidencia do plano aprovado: caminho da spec ou `TASK.md`, data/turno da aprovacao e requisitos/tarefas autorizados.
+- No handoff para `coder-engineer`, declare explicitamente que `tests/**`, fixtures, snapshots, `conftest.py`, configuracoes de pytest e comandos de teste/lint/type check estao fora do escopo do coder.
 - Em qualquer handoff de implementacao que altere codigo Python, encaminhe explicitamente `.github/skills/standard-docstrings/SKILL.md` ao `coder-engineer` e exija docstrings em pt-BR no formato NumPy para modulos, classes, funcoes e metodos publicos novos ou alterados.
 - Em qualquer handoff de implementacao que crie ou altere services/repositories, encaminhe explicitamente `.github/skills/standard-logs/SKILL.md` e `.github/skills/standard-traces/SKILL.md` ao `coder-engineer` e exija logs/spans ou justificativa explicita para ausencia.
 - Delegue seguranca para `security-reviewer` antes de concluir qualquer mudanca que toque auth, dados pessoais, secrets, permissao, logs, traces, uploads, LLM, webhooks, CORS ou rate limiting.
@@ -84,7 +86,7 @@ Exija que cada subagent retorne:
 - Skills consultadas.
 - Decisoes tomadas.
 - Riscos restantes.
-- Validacoes executadas com comando exato, exit code e resumo do output. Nao aceite validacao declarada sem evidencia.
+- Validacoes executadas com comando exato, exit code e resumo do output quando o agente tiver ferramenta e ownership para executar validacoes; caso contrario, pendencias de validacao para o agente responsavel.
 - `SPEC_DEVIATION`, quando o codigo precisar divergir da especificacao.
 
 ## Criterios de conclusao
