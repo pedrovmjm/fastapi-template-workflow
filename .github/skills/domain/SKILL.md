@@ -67,11 +67,8 @@ Ela funciona como uma skill de decisão arquitetural: identifica qual camada dev
 src/
 ├── models/
 │   └── users/
-│       └── responses/
-│           ├── user_response.py
-│           └── data_wrapper_user_response.py
-│       └── requests/
-│           └── user_request.py
+│       ├── user_create_request.py
+│       └── user_response.py
 ├── repository/
 │   └── users/
 │       └── user_repository.py

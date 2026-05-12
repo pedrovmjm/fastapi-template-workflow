@@ -44,7 +44,7 @@ Não deve:
 ## Exemplo de Service
 
 ```python
-from src.models.users.data.user_response import UserResponse
+from src.models.users.user_response import UserResponse
 from src.repository.users.user_repository import UserRepository
 
 
