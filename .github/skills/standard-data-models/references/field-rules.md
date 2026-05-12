@@ -13,6 +13,10 @@ Todo campo deve declarar:
 - `examples` quando o valor não for óbvio;
 - `pattern` quando houver vocabulário fechado representado como `str`.
 
+Estas regras valem para campos de modelos Pydantic. Query params de endpoints
+devem declarar descrição e limites na própria rota com `Query`, porque essa
+metadata depende do uso de negócio daquele endpoint.
+
 ## Strings
 
 ```python
@@ -38,12 +42,12 @@ status: str = Field(
 )
 ```
 
-## Inteiros
+## Inteiros de Modelo
 
 ```python
-page: int = Field(
-    1,
-    description="Página solicitada na consulta paginada.",
+total_records: int = Field(
+    ...,
+    description="Quantidade total de registros disponíveis para a coleção.",
     ge=1,
     le=100_000,
 )
@@ -90,5 +94,6 @@ deleted_at: str | None = Field(
 - Não use campo sem `Field`.
 - Não use `Any` em contratos públicos sem justificativa.
 - Não use `dict` solto quando a estrutura puder virar modelo.
+- Não use `Field` para centralizar descrição ou limites de query params de rota; use `Query` dentro do endpoint.
 - Não exponha token, senha, segredo, hash, documento ou payload sensível em response.
 - Não deixe string sem tamanho máximo.

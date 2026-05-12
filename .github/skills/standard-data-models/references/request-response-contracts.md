@@ -107,3 +107,4 @@ class UserResponse(BaseModel):
 - Um endpoint pode envelopar dados, mas não deve transformar entidade complexa manualmente.
 - Quando o endpoint precisar de envelope ou coleção paginada, o modelo continua pertencendo ao domínio de response e deve ficar no arquivo `*_response.py` do recurso.
 - Prefira nomes públicos terminados em `Response`, sem codificar `DataWrapper` ou `List` no nome do contrato.
+- Mantenha contratos do domínio em `src/models/<dominio>/`; use `src/models/utils/` apenas para helpers compartilhados como `meta` e `links`.

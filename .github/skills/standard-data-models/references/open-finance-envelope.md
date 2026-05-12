@@ -7,6 +7,9 @@ pertencem a um contrato de response, ficam no arquivo `*_response.py` do recurso
 por exemplo `user_response.py`. O nome público do contrato deve continuar
 expressando response, sem codificar `DataWrapper` ou `List`.
 
+Modelos reutilizáveis de `meta`, `links` e paginação compartilhada ficam em
+`src/models/utils/`. Use essa pasta para contratos comuns entre domínios.
+
 ## Recurso Único
 
 Use um envelope no arquivo de response do recurso para respostas com um único
@@ -115,8 +118,8 @@ class PaginationMeta(BaseModel):
 ```python
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.models.common.data.links import Links
-from src.models.common.data.pagination_meta import PaginationMeta
+from src.models.utils.links import Links
+from src.models.utils.pagination_meta import PaginationMeta
 
 
 class UserCollectionResponse(BaseModel):

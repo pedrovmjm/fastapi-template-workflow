@@ -33,14 +33,13 @@ Eles não devem ser o mesmo modelo.
 src/
 └── models/
     └── users/
-        ├── data/
-        │   ├── user_create_request.py
-        │   └── user_response.py
+        ├── user_create_request.py
+        ├── user_response.py
         └── persistence/
             └── user_record.py
 ```
 
-Use `data` para contratos públicos HTTP e `persistence` para modelos internos de armazenamento quando o projeto precisar desse tipo de separação.
+Use a raiz do domínio para contratos públicos HTTP e `persistence` para modelos internos de armazenamento quando o projeto precisar desse tipo de separação.
 
 ## Exemplo de Modelo de Persistência
 
@@ -68,7 +67,7 @@ class UserRecord(BaseModel):
 ## Exemplo de Conversão Para Response
 
 ```python
-from src.models.users.data.user_response import UserResponse
+from src.models.users.user_response import UserResponse
 from src.models.users.persistence.user_record import UserRecord
 
 

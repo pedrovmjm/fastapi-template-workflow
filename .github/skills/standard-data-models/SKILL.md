@@ -1,8 +1,8 @@
 ---
 name: standard-data-models
-description: Padroniza contratos Pydantic em data, modelos de request/response, envelopes de response, meta, links, paginação, Field obrigatório e validações explícitas.
+description: Padroniza contratos Pydantic em models por domínio, modelos de request/response, envelopes de response, meta, links, paginação, Field obrigatório e validações explícitas.
 ---
-# Standard Data Models - Pydantic e Contratos `data`
+# Standard Data Models - Pydantic e Contratos HTTP
 
 Use esta skill ao criar ou revisar modelos Pydantic, contratos HTTP, envelopes de response, metadados e modelos de paginação.
 
@@ -10,7 +10,8 @@ Use esta skill ao criar ou revisar modelos Pydantic, contratos HTTP, envelopes d
 
 Esta skill é dona de:
 
-- organização de modelos Pydantic em pacotes `data`;
+- organização de modelos Pydantic em `src/models/<dominio>/`;
+- contratos compartilhados de resposta em `src/models/utils/`, como `meta` e `links`;
 - separação de modelos de entrada e saída;
 - uso obrigatório de `Field`;
 - limites mínimos e máximos por tipo;
@@ -38,10 +39,13 @@ Esta skill não é dona de:
 
 ## Regras Obrigatórias
 
-- Todos os modelos Pydantic públicos de contrato HTTP devem ficar dentro de um pacote `data`.
+- Todos os modelos Pydantic públicos de contrato HTTP de um domínio devem ficar em `src/models/<dominio>/`.
+- Contratos compartilhados de `meta`, `links` e helpers reutilizáveis devem ficar em `src/models/utils/`.
+- Não crie pacote intermediário `data` dentro do domínio, salvo quando uma feature justificar explicitamente essa fronteira extra.
 - Um arquivo deve conter preferencialmente um modelo público principal.
 - Todo campo deve usar `Field`.
 - Todo `Field` deve ter `description` clara, forte e orientada a contrato.
+- `Field` descreve campos de modelos Pydantic de request/response; metadata de query params de rota deve ficar no endpoint com `Query`.
 - Campos `str` devem ter `min_length` e `max_length`.
 - Campos `int` e `float` devem ter `ge`/`gt` e `le`/`lt`, exceto quando houver justificativa documentada.
 - Campos opcionais devem explicar quando podem ser `None`.
@@ -60,10 +64,12 @@ Esta skill não é dona de:
 ```text
 src/
 └── models/
-    └── users/
-        └── data/
-            ├── user_create_request.py
-            └── user_response.py
+    ├── users/
+    │   ├── user_create_request.py
+    │   └── user_response.py
+    └── utils/
+        ├── links.py
+        └── meta.py
 ```
 
 ## Exemplo Completo de `UserResponse`
@@ -140,10 +146,11 @@ class UserEnvelopeResponse(BaseModel):
 
 ## Checklist
 
-- [ ] O modelo está em pacote `data`.
+- [ ] O modelo está em `src/models/<dominio>/` ou, se compartilhado, em `src/models/utils/`.
 - [ ] O arquivo/domínio diferencia apenas request e response.
 - [ ] Todo campo usa `Field`.
 - [ ] Todo campo tem descrição forte.
+- [ ] Nenhuma metadata de query param foi colocada em `Field`.
 - [ ] Strings possuem `min_length` e `max_length`.
 - [ ] Números possuem limite inferior e superior.
 - [ ] Responses não expõem dados sensíveis.
