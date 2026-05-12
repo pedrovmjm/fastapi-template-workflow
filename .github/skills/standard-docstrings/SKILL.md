@@ -20,6 +20,7 @@ Use esta skill para documentar código Python com docstrings fortes, claras e pa
 - Documente `Parameters`, `Returns`, `Raises`, `Examples` e `Notes` quando aplicável.
 - Não repita o óbvio; explique intenção, contrato, limites e efeitos.
 - Toda função assíncrona deve deixar claro se executa I/O, consulta externa ou orquestra tarefas.
+- Docstrings de endpoints devem explicar a intenção de negócio da rota: qual operação ela habilita, qual estado de negócio consulta ou altera e quais limites de escopo são deliberados.
 - Para modelos Pydantic, documente apenas a intenção do modelo; regras de `Field`, limites e wrappers pertencem à skill `standard-data-models`.
 
 ## Template de Função
@@ -52,12 +53,17 @@ async def get_user(user_id: str) -> UserResponse | None:
 ## Template de Endpoint
 
 ```python
-@router.get("/{user_id}", response_model=DataWrapperUserResponse)
+@router.get("/{user_id}", response_model=UserEnvelopeResponse)
 async def get_user(
     user_id: str,
     service: UserService = Depends(get_user_service),
-) -> DataWrapperUserResponse | Response:
-    """Retorna um usuário pelo identificador público.
+) -> UserEnvelopeResponse | Response:
+    """Consulta a visão pública de um usuário pelo identificador.
+
+    Este endpoint atende telas e integrações que precisam verificar o estado
+    atual de uma conta já criada. Ele não altera dados de negócio e retorna
+    `204` quando o identificador não representa um usuário disponível para
+    exposição pública.
 
     Parameters
     ----------
@@ -68,7 +74,7 @@ async def get_user(
 
     Returns
     -------
-    DataWrapperUserResponse | Response
+    UserEnvelopeResponse | Response
         Resposta HTTP `200` com o usuário encontrado ou `204` sem corpo.
     """
 ```
@@ -79,4 +85,5 @@ async def get_user(
 - [ ] A docstring usa seções NumPy com nomes em inglês técnico.
 - [ ] O texto descreve contrato, não implementação trivial.
 - [ ] Funções assíncronas documentam efeito de I/O ou orquestração.
+- [ ] Endpoints explicam intenção de negócio e limites da operação.
 - [ ] A docstring não tenta substituir validação, tipagem ou contrato Pydantic.
