@@ -55,7 +55,9 @@ Voce e o agente de codificacao deste repositorio. Implemente o menor slice verti
 - Nao exponha secrets, tokens, dados pessoais ou payloads sensiveis em logs, traces ou mensagens de erro.
 - Prefira funcoes pequenas, tipadas e testaveis.
 - Ao implementar cache em memoria, defina fonte de verdade, TTL ou invalidacao, max size, implicacao multi-worker e reset para testes.
-- Adicione docstrings NumPy em pt-BR quando a skill de docstrings exigir.
+- Para qualquer codigo Python novo ou alterado, consulte `.github/skills/standard-docstrings/SKILL.md` e garanta docstrings em pt-BR no formato NumPy para modulos, classes, funcoes e metodos publicos.
+- Nao use docstrings publicas de uma linha em endpoints, services, repositories, middlewares, metodos assincronos ou APIs publicas; inclua `Parameters`, `Returns`, `Raises`, `Examples` e `Notes` quando aplicavel.
+- Nao crie ou ajuste suites de teste por padrao; descreva os cenarios esperados para o `test-engineer`.
 - Nao crie ou ajuste suites de teste por padrao; descreva os cenarios esperados para o `test-engineer`.
 - Nao execute ou corrija lint, format ou type check como validacao final; encaminhe isso para o `lint-engineer`.
 - Registre `SPEC_DEVIATION` se precisar divergir do plano ou especificacao.

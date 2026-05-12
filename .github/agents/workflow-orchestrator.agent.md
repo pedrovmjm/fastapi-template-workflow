@@ -67,6 +67,7 @@ Use este fluxo como padrao:
 - Delegue seguranca para `security-reviewer` antes de concluir qualquer mudanca que toque auth, dados pessoais, secrets, permissao, logs, traces, uploads, LLM, webhooks, CORS ou rate limiting.
 - Delegue testes para `test-engineer` depois da implementacao e da revisao de seguranca.
 - Delegue lint, format e type check para `lint-engineer` depois de testes ou apos correcoes relevantes.
+ Em qualquer handoff de implementacao que altere codigo Python, encaminhe explicitamente `.github/skills/standard-docstrings/SKILL.md` ao `coder-engineer` e exija docstrings em pt-BR no formato NumPy para modulos, classes, funcoes e metodos publicos novos ou alterados.
 - Para tarefas pequenas, voce pode condensar o fluxo, mas ainda deve verificar se as skills relevantes foram consideradas.
 - Se o usuario pedir para pular um agente, registre a decisao e o risco no resumo final.
 

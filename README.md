@@ -204,7 +204,7 @@ Os agents em `.github/agents/` orientam a execucao do workflow:
 
 - `workflow-orchestrator`: coordena o fluxo e direciona o trabalho.
 - `sdd-planner`: ajuda a transformar demanda em especificacao, design e tarefas.
-- `coder-enginner`: implementa alteracoes no codigo.
+- `coder-engineer`: implementa alteracoes no codigo.
 - `security-reviewer`: revisa riscos de seguranca, dados sensiveis e abuso.
 - `test-engineer`: planeja e ajusta testes.
 - `lint-engineer`: valida lint, formatacao e type checks.
