@@ -19,9 +19,13 @@ Use esta skill ao criar ou revisar logs.
 - Logs devem ser estruturados e conter evento, camada e identificadores úteis.
 - Nunca logue senhas, tokens, documentos, cartões ou payloads sensíveis completos.
 - Inclua `correlation_id` quando disponível.
-- Use níveis de log de forma consistente: `debug`, `info`, `warning`, `error`, `exception`.
+- Inclua `trace_id` e `span_id` automaticamente pelo formatter quando houver span OpenTelemetry ativo.
+- Não crie `trace_id` manualmente em middleware, service ou repository; isso pertence ao OpenTelemetry.
+- Use níveis de log de forma consistente: `debug`, `info`, `warning`, `error`, `exception`, `critical`.
 - Mensagens devem ser curtas e em pt-BR.
 - Services e repositories podem logar eventos de domínio e infraestrutura, mas endpoints devem ser discretos.
+- Services e repositories novos ou alterados devem declarar eventos de log para sucesso relevante, resultado vazio/degradado e falha técnica traduzida, salvo justificativa explícita.
+- Use `critical` apenas para falha que compromete continuidade, integridade do sistema ou indisponibilidade ampla.
 
 ## Exemplo de Logger
 
@@ -83,8 +87,12 @@ async def log_repository_error(operation: str, error: Exception, context: dict[s
 ## Exemplo em Service
 
 ```python
-from src.logger import logger
+import logging
+
 from src.models.users.user_response import UserResponse
+
+
+logger = logging.getLogger("app.services.users")
 
 
 class UserService:
@@ -106,6 +114,14 @@ class UserService:
             Dados públicos do usuário criado.
         """
 
+        logger.info(
+            "Criação de usuário iniciada.",
+            extra={
+                "event": "user.create_started",
+                "layer": "service",
+                "correlation_id": correlation_id,
+            },
+        )
         user = await self._repository.create(payload=payload)
         logger.info(
             "Usuário criado com sucesso.",
@@ -123,6 +139,8 @@ class UserService:
 
 - [ ] Log contém `event` e `layer`.
 - [ ] Log inclui `correlation_id` quando disponível.
+- [ ] Formatter adiciona `trace_id` e `span_id` quando existe span ativo.
 - [ ] Nenhum dado sensível é emitido.
 - [ ] Exceções usam `logger.exception` quando há stack trace útil.
 - [ ] Mensagens são curtas, em pt-BR e orientadas a evento.
+- [ ] Services e repositories relevantes possuem eventos observáveis ou justificativa explícita para silêncio.

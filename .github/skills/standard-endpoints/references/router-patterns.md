@@ -15,13 +15,18 @@ Use routers pequenos, coesos e orientados a recurso.
 ## Exemplo
 
 ```python
-from fastapi import APIRouter, Depends, status
+import logging
+
+from fastapi import APIRouter, Depends, Request, status
+from opentelemetry import trace
 
 from src.models.users.user_create_request import UserCreateRequest
 from src.models.users.user_response import UserEnvelopeResponse
 from src.services.users.user_service import UserService
 
 router = APIRouter(tags=["users"])
+logger = logging.getLogger("app.routes.users")
+tracer = trace.get_tracer("app.routes.users")
 
 
 @router.post(
@@ -30,6 +35,7 @@ router = APIRouter(tags=["users"])
     status_code=status.HTTP_201_CREATED,
 )
 async def create_user(
+    request: Request,
     payload: UserCreateRequest,
     service: UserService = Depends(),
 ) -> UserEnvelopeResponse:
@@ -40,6 +46,34 @@ async def create_user(
     envelope público criado.
     """
 
-    user = await service.create_user(payload=payload)
-    return UserEnvelopeResponse(data=user)
+    correlation_id = getattr(request.state, "correlation_id", None)
+    with tracer.start_as_current_span("users.endpoint.create_user") as span:
+        span.set_attribute("app.layer", "endpoint")
+        span.set_attribute("app.operation", "create_user")
+        if correlation_id is not None:
+            span.set_attribute("app.correlation_id", correlation_id)
+
+        logger.info(
+            "Criação de usuário recebida.",
+            extra={
+                "event": "user_create.request_received",
+                "layer": "endpoint",
+                "correlation_id": correlation_id,
+            },
+        )
+        user = await service.create_user(
+            payload=payload,
+            correlation_id=correlation_id,
+        )
+        span.set_attribute("app.result", "created")
+        logger.info(
+            "Criação de usuário respondida.",
+            extra={
+                "event": "user_create.request_succeeded",
+                "layer": "endpoint",
+                "user_id": user.id,
+                "correlation_id": correlation_id,
+            },
+        )
+        return UserEnvelopeResponse(data=user)
 ```

@@ -24,6 +24,7 @@ Use esta skill ao instrumentar endpoints, services, repositories e integrações
 - Use nomes estáveis para spans, como `users.service.create_user`.
 - Marque erros no span e relance a exceção para tratamento global.
 - Operações assíncronas paralelas devem criar spans próprios quando representarem I/O relevante.
+- Services e repositories novos ou alterados devem criar spans em operações relevantes de caso de uso, I/O, query, blob ou integração técnica, salvo justificativa explícita.
 
 ## Exemplo de Instrumentação
 
@@ -130,3 +131,4 @@ async def load_dashboard(user_id: str, correlation_id: str | None) -> UserDashbo
 - [ ] Erros são registrados no span e relançados.
 - [ ] `correlation_id` é propagado quando disponível.
 - [ ] Operações paralelas relevantes possuem rastreamento próprio.
+- [ ] Services e repositories relevantes possuem spans próprios ou justificativa explícita para ausência de span.

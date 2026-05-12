@@ -23,6 +23,17 @@ class UserService:
     ) -> None:
         self._user_repository = user_repository
         self._summary_repository = summary_repository
+
+    async def get_user_summary(
+        self,
+        user_id: str,
+        correlation_id: str | None,
+    ) -> UserSummary:
+        """Busca resumo usando repositories injetados e contexto observável."""
+
+        user = await self._user_repository.get_by_id(user_id=user_id)
+        summary = await self._summary_repository.get_by_user_id(user_id=user_id)
+        return UserSummary(user=user, summary=summary, correlation_id=correlation_id)
 ```
 
 ## Provider FastAPI
