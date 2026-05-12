@@ -151,7 +151,7 @@ def build_file_templates() -> list[FileTemplate]:
             HTTPX_CLIENT__MAX_CONNECTIONS=100
             HTTPX_CLIENT__MAX_KEEPALIVE_CONNECTIONS=20
 
-            LOGGING__LEVEL=INFO
+            LOGGING__LEVEL=WARNING
             LOGGING__JSON_ENABLED=true
 
             TELEMETRY__ENABLED=true
@@ -1302,7 +1302,7 @@ def build_file_templates() -> list[FileTemplate]:
             '''
             """Define valores operacionais do servidor Uvicorn."""
 
-            from pydantic import BaseModel, ConfigDict, Field
+            from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
             class ServerValues(BaseModel):
@@ -1368,6 +1368,15 @@ def build_file_templates() -> list[FileTemplate]:
                     ge=0,
                     le=100_000,
                 )
+
+                @field_validator("log_level", mode="before")
+                @classmethod
+                def normalize_log_level(cls, value: str) -> str:
+                    """Normaliza o nivel de log do Uvicorn para o formato aceito."""
+
+                    if isinstance(value, str):
+                        return value.lower()
+                    return value
             ''',
         ),
         FileTemplate(
@@ -1450,7 +1459,7 @@ def build_file_templates() -> list[FileTemplate]:
             '''
             """Define valores de logging da aplicacao."""
 
-            from pydantic import BaseModel, ConfigDict, Field
+            from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
             class LoggingValues(BaseModel):
@@ -1469,6 +1478,15 @@ def build_file_templates() -> list[FileTemplate]:
                     True,
                     description="Indica se os logs devem ser emitidos em JSON estruturado.",
                 )
+
+                @field_validator("level", mode="before")
+                @classmethod
+                def normalize_level(cls, value: str) -> str:
+                    """Normaliza o nivel de log da aplicacao para o formato do logging."""
+
+                    if isinstance(value, str):
+                        return value.upper()
+                    return value
             ''',
         ),
         FileTemplate(
@@ -3004,7 +3022,10 @@ def build_file_templates() -> list[FileTemplate]:
 
                 root_logger.addHandler(handler)
                 root_logger.setLevel(settings.logging.level)
-                logging.getLogger("uvicorn.access").setLevel(settings.logging.level)
+
+                server_log_level = settings.server.log_level.upper()
+                logging.getLogger("uvicorn.error").setLevel(server_log_level)
+                logging.getLogger("uvicorn.access").setLevel(server_log_level)
             ''',
         ),
         FileTemplate(
