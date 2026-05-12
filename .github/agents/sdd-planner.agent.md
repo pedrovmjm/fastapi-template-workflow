@@ -43,7 +43,7 @@ Voce e o agente de planejamento SDD/SPC deste repositorio. Sua responsabilidade 
 
 Antes de propor design, paths ou tarefas, carregue as skills standard aplicaveis ao dominio tecnico do pedido. O SDD nao deve inventar padroes quando uma skill existente ja define ownership e convencao.
 
-- Para CRUD/persistencia, considere ao menos `standard-data-models`, `standard-endpoints`, `standard-services`, `standard-repositories`, `standard-database`, `standard-configs` e `standard-tests`.
+- Para CRUD/persistencia, considere ao menos `standard-data-models`, `standard-endpoints`, `standard-services`, `standard-repositories`, `standard-database`, `standard-configs`, `standard-logs`, `standard-traces` e `standard-tests`.
 - Se uma skill apontar uma convencao, use-a como fonte de padrao; confirme exemplos no codigo quando houver base existente.
 - Se a skill e o codigo existente divergirem, registre a divergencia como decisao ou gap antes de transformar em tarefa.
 - Nao crie pastas, migrations, providers, fixtures ou helpers que nao estejam previstos por skill relevante, exemplo real do repo ou decisao explicita no plano.

@@ -34,10 +34,10 @@ Use estas skills apenas como referências para delegação. Não execute uma ski
 | Estratégia de testes unitários, integração, E2E, fixtures ou doubles | `.github/skills/standard-tests/SKILL.md` | `test-engineer` |
 | Lint, format, imports, style ou type check | Configs do projeto em `pyproject.toml`, `tox.ini`, `Makefile` ou workflows | `lint-engineer` |
 | Endpoints, contratos Pydantic ou erros públicos | `.github/skills/standard-endpoints/SKILL.md`, `.github/skills/standard-data-models/SKILL.md`, `.github/skills/standard-errors/SKILL.md` | `sdd-planner`, `sdd-refiner`, `coder-engineer`, depois `security-reviewer`, depois `test-engineer` |
-| Services, regra de negócio ou docstrings de domínio | `.github/skills/standard-services/SKILL.md`, `.github/skills/domain/SKILL.md`, `.github/skills/standard-docstrings/SKILL.md` | `sdd-planner`, `sdd-refiner` ou `coder-engineer` |
+| Services, regra de negócio ou docstrings de domínio | `.github/skills/standard-services/SKILL.md`, `.github/skills/domain/SKILL.md`, `.github/skills/standard-docstrings/SKILL.md`, `.github/skills/standard-logs/SKILL.md`, `.github/skills/standard-traces/SKILL.md` | `sdd-planner`, `sdd-refiner` ou `coder-engineer` |
 | Cache em memoria, cache local, memoizacao, TTL, LRU, invalidacao ou risco multi-worker | `.github/skills/in-memory-cache/SKILL.md` | `cache-reviewer`, depois `coder-engineer`, `security-reviewer` e `test-engineer` |
 | Interfaces por tipo de processamento, estratégias, registry ou factory | `.github/skills/processing-interfaces/SKILL.md`, `.github/skills/standard-services/SKILL.md`, `.github/skills/domain/SKILL.md` | `sdd-planner`, `sdd-refiner` ou `coder-engineer` |
-| Repositories, banco, providers ou configurações | `.github/skills/standard-repositories/SKILL.md`, `.github/skills/standard-database/SKILL.md`, `.github/skills/standard-configs/SKILL.md` | `sdd-planner`, `sdd-refiner` ou `coder-engineer` |
+| Repositories, banco, providers ou configurações | `.github/skills/standard-repositories/SKILL.md`, `.github/skills/standard-database/SKILL.md`, `.github/skills/standard-configs/SKILL.md`, `.github/skills/standard-logs/SKILL.md`, `.github/skills/standard-traces/SKILL.md` | `sdd-planner`, `sdd-refiner` ou `coder-engineer` |
 | Integrações externas, logs ou traces | `.github/skills/standard-integrations/SKILL.md`, `.github/skills/standard-logs/SKILL.md`, `.github/skills/standard-traces/SKILL.md` | `sdd-planner`, `sdd-refiner`, `coder-engineer` e depois `security-reviewer` |
 | Middleware, headers, correlation id ou logging transversal | `.github/skills/standard-middleware/SKILL.md`, `.github/skills/standard-security/SKILL.md`, `.github/skills/standard-logs/SKILL.md` | `sdd-planner`, `sdd-refiner`, `coder-engineer` e depois `security-reviewer` |
 
@@ -63,11 +63,12 @@ Use este fluxo como padrao:
 - A delegacao e sempre uma fila, nao um swarm. Nao abra subagents simultaneos, nao agrupe chamadas de `agent` e nao antecipe revisores antes de existir output da etapa anterior.
 - Delegue planejamento para `sdd-planner`; nao implemente antes de haver objetivo, arquivos esperados, riscos e comandos de validacao.
 - Feature nova que cria entidade, tabela/colecao, endpoint, contrato publico, repository ou service e no minimo escopo medio. Deve gerar `.specs/features/<slug>/spec.md` e parar para aprovacao explicita do usuario antes de qualquer implementacao.
-- Para CRUD/persistencia, o handoff ao `sdd-planner` deve citar as skills existentes relevantes: `standard-data-models`, `standard-endpoints`, `standard-services`, `standard-repositories`, `standard-database`, `standard-configs` e `standard-tests`.
+- Para CRUD/persistencia, o handoff ao `sdd-planner` deve citar as skills existentes relevantes: `standard-data-models`, `standard-endpoints`, `standard-services`, `standard-repositories`, `standard-database`, `standard-configs`, `standard-logs`, `standard-traces` e `standard-tests`.
 - Delegue refinamento para `sdd-refiner` quando o plano tiver ambiguidade, criterios fracos, tarefas grandes demais ou dependencias pouco claras.
 - Delegue avaliacao para `cache-reviewer` quando cache em memoria puder alterar consistencia, memoria, seguranca, testes ou comportamento multi-worker.
 - Delegue implementacao para `coder-engineer` com escopo fechado de arquivos ou responsabilidades e com evidencia do plano aprovado: caminho da spec ou `TASK.md`, data/turno da aprovacao e requisitos/tarefas autorizados.
 - Em qualquer handoff de implementacao que altere codigo Python, encaminhe explicitamente `.github/skills/standard-docstrings/SKILL.md` ao `coder-engineer` e exija docstrings em pt-BR no formato NumPy para modulos, classes, funcoes e metodos publicos novos ou alterados.
+- Em qualquer handoff de implementacao que crie ou altere services/repositories, encaminhe explicitamente `.github/skills/standard-logs/SKILL.md` e `.github/skills/standard-traces/SKILL.md` ao `coder-engineer` e exija logs/spans ou justificativa explicita para ausencia.
 - Delegue seguranca para `security-reviewer` antes de concluir qualquer mudanca que toque auth, dados pessoais, secrets, permissao, logs, traces, uploads, LLM, webhooks, CORS ou rate limiting.
 - Delegue testes para `test-engineer` depois da implementacao e da revisao de seguranca.
 - Delegue lint, format e type check para `lint-engineer` depois de testes ou apos correcoes relevantes.

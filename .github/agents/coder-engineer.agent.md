@@ -53,6 +53,7 @@ Voce e o agente de codificacao deste repositorio. Implemente o menor slice verti
 - Mantenha endpoints finos, services com regra de negocio e repositories como execucao tecnica.
 - Use contratos Pydantic explicitos, envelopes e erros conforme as skills de modelos, endpoints e erros.
 - Nao exponha secrets, tokens, dados pessoais ou payloads sensiveis em logs, traces ou mensagens de erro.
+- Ao criar ou alterar services/repositories, consulte `standard-logs` e `standard-traces`; implemente logs estruturados e spans para operacoes relevantes ou registre justificativa explicita para ausencia.
 - Prefira funcoes pequenas, tipadas e testaveis.
 - Ao implementar cache em memoria, defina fonte de verdade, TTL ou invalidacao, max size, implicacao multi-worker e reset para testes.
 - Para qualquer codigo Python novo ou alterado, consulte `.github/skills/standard-docstrings/SKILL.md` e garanta docstrings em pt-BR no formato NumPy para modulos, classes, funcoes e metodos publicos.
