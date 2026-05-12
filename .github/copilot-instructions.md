@@ -20,6 +20,8 @@ Use `sdd-planner` diretamente somente quando o usuario pedir apenas especificaca
 
 O orquestrador so pode coordenar com `read`, `search`, `todo` e `agent`. O alias `agent` representa a capacidade de chamar subagents, isto e, `runSubagents`. Ele nao deve escrever arquivos, rodar comandos, implementar codigo ou executar skills diretamente.
 
+O orquestrador deve executar o workflow de forma estritamente sequencial. Nao dispare swarm, fan-out ou multiplos subagents em paralelo: chame um agent por vez, aguarde o resultado, atualize o contexto/todo e so entao decida a proxima chamada. Revisores, testes e lint so devem ser acionados depois do output da etapa anterior.
+
 Skills em `.github/skills/` sao referencias de padrao e ownership. O orquestrador deve encaminhar as skills relevantes no prompt dos subagents responsaveis; quem executa planejamento, codigo, revisao ou validacao e sempre um agent especializado.
 
 Antes de alterar codigo, o agent executor deve consultar as skills relevantes em `.github/skills/` e preservar os padroes locais do projeto.
