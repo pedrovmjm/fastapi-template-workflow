@@ -111,14 +111,16 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 │   │   ├── object_storage.py
 │   │   └── values_domains/
 │   ├── middlewares/
-│   │   └── api_version.py
+│   │   ├── api_version.py
+│   │   └── correlation_id.py
 │   ├── models/
 │   │   ├── health/
 │   │   └── utils/
 │   ├── observability/
+│   │   ├── correlation.py
 │   │   ├── logging/
 │   │   └── telemetry/
-│   ├── repositories/
+│   ├── repository/
 │   │   └── object_storage/
 │   ├── routes/
 │   │   └── health/
@@ -138,7 +140,7 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 - `src/models/utils/`: contratos compartilhados para `meta` e `links` em respostas HTTP, com helper assíncrono para montar o contexto dinâmico de respostas `GET`.
 - `src/routes/health/`: endpoint `/health` com envelope `data`, `meta` e `links`.
 - `src/observability/`: logging estruturado e setup de tracing OpenTelemetry.
-- `src/repositories/object_storage/`: interface, factory e implementacoes para Azure Blob e AWS S3.
+- `src/repository/object_storage/`: interface, factory e implementacoes para Azure Blob e AWS S3.
 - `src/services/`: camada reservada para regras de negocio.
 - `tests/`: ponto inicial para a suite de testes.
 

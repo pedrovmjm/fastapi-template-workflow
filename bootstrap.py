@@ -128,6 +128,7 @@ def build_file_templates() -> list[FileTemplate]:
             APP__ENVIRONMENT=local
             APP__DEFAULT_API_VERSION=$api_version
             APP__API_VERSION_HEADER_NAME=X-API-Version
+            APP__CORRELATION_ID_HEADER_NAME=X-Correlation-Id
             APP__DOCS_URL=/docs
             APP__REDOC_URL=/redoc
             APP__OPENAPI_URL=/openapi.json
@@ -274,6 +275,7 @@ def build_file_templates() -> list[FileTemplate]:
             from src.configs.settings import Settings, get_settings
             from src.configs.sql_database import close_sql_engine, get_sql_engine
             from src.middlewares.api_version import ApiVersionMiddleware
+            from src.middlewares.correlation_id import CorrelationIdMiddleware
             from src.observability.logging.logging import configure_logging
             from src.observability.telemetry.setup import configure_telemetry
             from src.routes.health import health
@@ -380,6 +382,10 @@ def build_file_templates() -> list[FileTemplate]:
                     ApiVersionMiddleware,
                     default_api_version=settings.app.default_api_version,
                     header_name=settings.app.api_version_header_name,
+                )
+                app.add_middleware(
+                    CorrelationIdMiddleware,
+                    header_name=settings.app.correlation_id_header_name,
                 )
 
 
@@ -1265,6 +1271,12 @@ def build_file_templates() -> list[FileTemplate]:
                     min_length=1,
                     max_length=64,
                 )
+                correlation_id_header_name: str = Field(
+                    "X-Correlation-Id",
+                    description="Header HTTP usado para propagar o correlation id da requisicao.",
+                    min_length=1,
+                    max_length=64,
+                )
                 docs_url: str | None = Field(
                     "/docs",
                     description="Path publico da documentacao Swagger UI ou `None` para desativar.",
@@ -1805,6 +1817,75 @@ def build_file_templates() -> list[FileTemplate]:
             '"""Middlewares HTTP globais da aplicacao."""\n',
         ),
         FileTemplate(
+            "src/middlewares/correlation_id.py",
+            '''
+            """Middleware para propagar correlation id em requests, logs e traces."""
+
+            from __future__ import annotations
+
+            from collections.abc import Awaitable, Callable
+            from uuid import uuid4
+
+            from starlette.middleware.base import BaseHTTPMiddleware
+            from starlette.requests import Request
+            from starlette.responses import Response
+
+            from src.observability.correlation import set_correlation_id
+
+
+            class CorrelationIdMiddleware(BaseHTTPMiddleware):
+                """Propaga correlation id entre request, contexto local e response.
+
+                Parameters
+                ----------
+                app : object
+                    Aplicacao ASGI decorada pelo middleware.
+                header_name : str
+                    Nome do header HTTP usado para entrada e saida do correlation id.
+
+                Notes
+                -----
+                O identificador fica em `request.state.correlation_id`, no contexto
+                local assíncrono e no header de resposta.
+                """
+
+                def __init__(self, app: object, header_name: str = "X-Correlation-Id") -> None:
+                    super().__init__(app)
+                    self._header_name = header_name
+
+                async def dispatch(
+                    self,
+                    request: Request,
+                    call_next: Callable[[Request], Awaitable[Response]],
+                ) -> Response:
+                    """Adiciona correlation id ao ciclo da requisicao.
+
+                    Parameters
+                    ----------
+                    request : Request
+                        Requisicao HTTP recebida pela aplicacao.
+                    call_next : Callable[[Request], Awaitable[Response]]
+                        Proximo handler da cadeia ASGI.
+
+                    Returns
+                    -------
+                    Response
+                        Resposta HTTP com header de correlation id preenchido.
+                    """
+
+                    correlation_id = request.headers.get(self._header_name) or str(uuid4())
+                    request.state.correlation_id = correlation_id
+                    token = set_correlation_id(correlation_id=correlation_id)
+                    try:
+                        response = await call_next(request)
+                    finally:
+                        set_correlation_id(correlation_id=None, token=token)
+
+                    response.headers[self._header_name] = correlation_id
+                    return response
+            ''',
+        ),
+        FileTemplate(
             "src/middlewares/api_version.py",
             '''
             """Middleware para identificar e propagar a versao da API."""
@@ -2241,6 +2322,61 @@ def build_file_templates() -> list[FileTemplate]:
         FileTemplate(
             "src/observability/__init__.py",
             '"""Configuracoes de observabilidade da aplicacao."""\n',
+        ),
+        FileTemplate(
+            "src/observability/correlation.py",
+            '''
+            """Mantem correlation id no contexto assincrono atual."""
+
+            from __future__ import annotations
+
+            from contextvars import ContextVar, Token
+
+
+            _correlation_id: ContextVar[str | None] = ContextVar(
+                "correlation_id",
+                default=None,
+            )
+
+
+            def get_current_correlation_id() -> str | None:
+                """Retorna o correlation id associado ao contexto atual.
+
+                Returns
+                -------
+                str | None
+                    Identificador da requisicao atual ou `None` fora de request.
+                """
+
+                return _correlation_id.get()
+
+
+            def set_correlation_id(
+                *,
+                correlation_id: str | None,
+                token: Token[str | None] | None = None,
+            ) -> Token[str | None] | None:
+                """Define ou restaura o correlation id do contexto atual.
+
+                Parameters
+                ----------
+                correlation_id : str | None
+                    Identificador a associar ao contexto quando `token` nao for informado.
+                token : Token[str | None] | None
+                    Token retornado por chamada anterior, usado para restaurar o contexto.
+
+                Returns
+                -------
+                Token[str | None] | None
+                    Token de restauracao quando um novo valor e definido.
+                """
+
+                if token is not None:
+                    _correlation_id.reset(token)
+                    return None
+
+                return _correlation_id.set(correlation_id)
+            ''',
         ),
         FileTemplate(
             "src/observability/logging/__init__.py",
@@ -2741,6 +2877,10 @@ def build_file_templates() -> list[FileTemplate]:
             from typing import Any
 
             from src.configs.settings import Settings
+            from src.observability.correlation import get_current_correlation_id
+
+
+            _INVALID_TRACE_ID = 0
 
 
             _STANDARD_LOG_RECORD_ATTRS = {
@@ -2781,6 +2921,22 @@ def build_file_templates() -> list[FileTemplate]:
             class JsonLogFormatter(logging.Formatter):
                 """Formata registros de log em JSON estruturado."""
 
+                def _add_trace_context(self, payload: dict[str, Any]) -> None:
+                    """Adiciona trace id e span id do span ativo quando disponiveis."""
+
+                    try:
+                        from opentelemetry import trace
+                    except ImportError:
+                        return
+
+                    span = trace.get_current_span()
+                    span_context = span.get_span_context()
+                    if not span_context.is_valid or span_context.trace_id == _INVALID_TRACE_ID:
+                        return
+
+                    payload["trace_id"] = trace.format_trace_id(span_context.trace_id)
+                    payload["span_id"] = trace.format_span_id(span_context.span_id)
+
                 def format(self, record: logging.LogRecord) -> str:
                     """Serializa um registro de log em JSON seguro.
 
@@ -2805,8 +2961,11 @@ def build_file_templates() -> list[FileTemplate]:
                     }
 
                     correlation_id = getattr(record, "correlation_id", None)
+                    if correlation_id is None:
+                        correlation_id = get_current_correlation_id()
                     if correlation_id:
                         payload["correlation_id"] = correlation_id
+                    self._add_trace_context(payload=payload)
 
                     for key, value in record.__dict__.items():
                         if key in _STANDARD_LOG_RECORD_ATTRS or key in payload:
@@ -2849,15 +3008,15 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
-            "src/repositories/__init__.py",
+            "src/repository/__init__.py",
             '"""Repositories da aplicacao."""\n',
         ),
         FileTemplate(
-            "src/repositories/object_storage/__init__.py",
+            "src/repository/object_storage/__init__.py",
             '"""Repositories para object storage."""\n',
         ),
         FileTemplate(
-            "src/repositories/object_storage/models.py",
+            "src/repository/object_storage/models.py",
             '''
             """Modelos internos usados pelos repositories de object storage."""
 
@@ -2894,7 +3053,7 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
-            "src/repositories/object_storage/exceptions.py",
+            "src/repository/object_storage/exceptions.py",
             '''
             """Excecoes tecnicas comuns para repositories de object storage."""
 
@@ -2924,7 +3083,7 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
-            "src/repositories/object_storage/paths.py",
+            "src/repository/object_storage/paths.py",
             '''
             """Normaliza chaves e prefixos para providers de object storage."""
 
@@ -2971,7 +3130,7 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
-            "src/repositories/object_storage/interface.py",
+            "src/repository/object_storage/interface.py",
             '''
             """Define contrato comum para repositories de object storage."""
 
@@ -2980,7 +3139,7 @@ def build_file_templates() -> list[FileTemplate]:
             from collections.abc import Mapping
             from typing import Protocol
 
-            from src.repositories.object_storage.models import (
+            from src.repository.object_storage.models import (
                 ObjectStorageAccessPermission,
                 ObjectStorageItem,
                 ObjectStorageMetadata,
@@ -3144,15 +3303,17 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
-            "src/repositories/object_storage/azure_blob.py",
+            "src/repository/object_storage/azure_blob.py",
             '''
             """Implementa object storage usando Azure Blob."""
 
             from __future__ import annotations
 
-            from collections.abc import Mapping
+            from collections.abc import Awaitable, Callable, Mapping
             from datetime import datetime, timedelta, timezone
-            from typing import Any
+            from functools import wraps
+            import logging
+            from typing import Any, TypeVar, cast
 
             from azure.core.exceptions import (
                 AzureError,
@@ -3163,24 +3324,104 @@ def build_file_templates() -> list[FileTemplate]:
                 ServiceResponseError,
             )
             from azure.storage.blob import BlobSasPermissions, ContentSettings, generate_blob_sas
+            from opentelemetry import trace
+            from opentelemetry.trace import Status, StatusCode
 
-            from src.repositories.object_storage.exceptions import (
+            from src.repository.object_storage.exceptions import (
                 ObjectStorageConfigurationError,
                 ObjectStorageConflictError,
                 ObjectStorageNotFoundError,
                 ObjectStoragePermissionError,
                 ObjectStorageTransientError,
             )
-            from src.repositories.object_storage.models import (
+            from src.repository.object_storage.models import (
                 ObjectStorageAccessPermission,
                 ObjectStorageItem,
                 ObjectStorageMetadata,
             )
-            from src.repositories.object_storage.paths import (
+            from src.repository.object_storage.paths import (
                 remove_base_prefix,
                 resolve_folder_prefix,
                 resolve_object_key,
             )
+            from src.observability.correlation import get_current_correlation_id
+
+
+            OperationFunc = TypeVar("OperationFunc", bound=Callable[..., Awaitable[Any]])
+            logger = logging.getLogger("app.repository.object_storage.azure_blob")
+            tracer = trace.get_tracer("app.repository.object_storage.azure_blob")
+
+
+            def _traced_operation(operation: str) -> Callable[[OperationFunc], OperationFunc]:
+                """Instrumenta uma operacao tecnica de object storage.
+
+                Parameters
+                ----------
+                operation : str
+                    Nome estavel da operacao executada pelo repository.
+
+                Returns
+                -------
+                Callable[[OperationFunc], OperationFunc]
+                    Decorator que adiciona span e log seguro de falha.
+                """
+
+                def decorator(func: OperationFunc) -> OperationFunc:
+                    @wraps(func)
+                    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+                        with tracer.start_as_current_span(
+                            f"object_storage.repository.{operation}",
+                        ) as span:
+                            span.set_attribute("app.layer", "repository")
+                            span.set_attribute("app.provider", "azure_blob")
+                            span.set_attribute("app.operation", operation)
+                            correlation_id = get_current_correlation_id()
+                            if correlation_id is not None:
+                                span.set_attribute("app.correlation_id", correlation_id)
+                            try:
+                                logger.info(
+                                    "Operacao de object storage iniciada.",
+                                    extra={
+                                        "event": "object_storage.operation_started",
+                                        "layer": "repository",
+                                        "provider": "azure_blob",
+                                        "operation": operation,
+                                        "correlation_id": correlation_id,
+                                    },
+                                )
+                                result = await func(*args, **kwargs)
+                                span.set_attribute("app.result", "success")
+                                logger.info(
+                                    "Operacao de object storage concluida.",
+                                    extra={
+                                        "event": "object_storage.operation_succeeded",
+                                        "layer": "repository",
+                                        "provider": "azure_blob",
+                                        "operation": operation,
+                                        "correlation_id": correlation_id,
+                                    },
+                                )
+                                return result
+                            except Exception as error:
+                                span.record_exception(error)
+                                span.set_status(Status(StatusCode.ERROR, type(error).__name__))
+                                span.set_attribute("app.result", "failed")
+                                logger.warning(
+                                    "Falha em operacao de object storage.",
+                                    extra={
+                                        "event": "object_storage.operation_failed",
+                                        "layer": "repository",
+                                        "provider": "azure_blob",
+                                        "operation": operation,
+                                        "error_type": type(error).__name__,
+                                        "correlation_id": correlation_id,
+                                    },
+                                )
+                                raise
+
+                    return cast(OperationFunc, wrapper)
+
+                return decorator
 
 
             class AzureBlobStorageRepository:
@@ -3223,6 +3464,7 @@ def build_file_templates() -> list[FileTemplate]:
                     self._default_url_expires_seconds = default_url_expires_seconds
                     self._max_url_expires_seconds = max_url_expires_seconds
 
+                @_traced_operation("upload_object")
                 async def upload_object(
                     self,
                     key: str,
@@ -3268,6 +3510,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "Falha tecnica ao enviar objeto para Azure Blob.",
                         ) from exc
 
+                @_traced_operation("download_object")
                 async def download_object(self, key: str) -> bytes:
                     """Baixa o conteudo bruto de um objeto no Azure Blob."""
 
@@ -3297,6 +3540,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "Falha tecnica ao baixar objeto do Azure Blob.",
                         ) from exc
 
+                @_traced_operation("object_exists")
                 async def object_exists(self, key: str) -> bool:
                     """Indica se um objeto existe no Azure Blob."""
 
@@ -3317,6 +3561,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "Falha tecnica ao verificar objeto no Azure Blob.",
                         ) from exc
 
+                @_traced_operation("get_object_metadata")
                 async def get_object_metadata(self, key: str) -> ObjectStorageMetadata:
                     """Busca metadados tecnicos de um objeto no Azure Blob."""
 
@@ -3351,6 +3596,7 @@ def build_file_templates() -> list[FileTemplate]:
                         metadata=dict(getattr(properties, "metadata", {}) or {}),
                     )
 
+                @_traced_operation("list_objects")
                 async def list_objects(
                     self,
                     prefix: str = "",
@@ -3394,6 +3640,7 @@ def build_file_templates() -> list[FileTemplate]:
 
                     return items
 
+                @_traced_operation("delete_object")
                 async def delete_object(self, key: str) -> None:
                     """Remove um objeto do Azure Blob."""
 
@@ -3416,6 +3663,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "Falha tecnica ao remover objeto do Azure Blob.",
                         ) from exc
 
+                @_traced_operation("create_folder")
                 async def create_folder(self, prefix: str) -> None:
                     """Cria uma pasta virtual no Azure Blob."""
 
@@ -3425,6 +3673,7 @@ def build_file_templates() -> list[FileTemplate]:
 
                     await self.upload_object(key=f"{folder_key}/", content=b"", overwrite=True)
 
+                @_traced_operation("delete_folder")
                 async def delete_folder(self, prefix: str) -> int:
                     """Remove objetos abaixo de uma pasta virtual no Azure Blob."""
 
@@ -3434,6 +3683,7 @@ def build_file_templates() -> list[FileTemplate]:
 
                     return len(objects)
 
+                @_traced_operation("create_access_url")
                 async def create_access_url(
                     self,
                     key: str,
@@ -3491,33 +3741,115 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
-            "src/repositories/object_storage/aws_s3.py",
+            "src/repository/object_storage/aws_s3.py",
             '''
             """Implementa object storage usando AWS S3."""
 
             from __future__ import annotations
 
-            from collections.abc import Mapping
-            from typing import Any
+            from collections.abc import Awaitable, Callable, Mapping
+            from functools import wraps
+            import logging
+            from typing import Any, TypeVar, cast
 
             from botocore.exceptions import ClientError, EndpointConnectionError
+            from opentelemetry import trace
+            from opentelemetry.trace import Status, StatusCode
 
-            from src.repositories.object_storage.exceptions import (
+            from src.repository.object_storage.exceptions import (
                 ObjectStorageConflictError,
                 ObjectStorageNotFoundError,
                 ObjectStoragePermissionError,
                 ObjectStorageTransientError,
             )
-            from src.repositories.object_storage.models import (
+            from src.repository.object_storage.models import (
                 ObjectStorageAccessPermission,
                 ObjectStorageItem,
                 ObjectStorageMetadata,
             )
-            from src.repositories.object_storage.paths import (
+            from src.repository.object_storage.paths import (
                 remove_base_prefix,
                 resolve_folder_prefix,
                 resolve_object_key,
             )
+            from src.observability.correlation import get_current_correlation_id
+
+
+            OperationFunc = TypeVar("OperationFunc", bound=Callable[..., Awaitable[Any]])
+            logger = logging.getLogger("app.repository.object_storage.aws_s3")
+            tracer = trace.get_tracer("app.repository.object_storage.aws_s3")
+
+
+            def _traced_operation(operation: str) -> Callable[[OperationFunc], OperationFunc]:
+                """Instrumenta uma operacao tecnica de object storage.
+
+                Parameters
+                ----------
+                operation : str
+                    Nome estavel da operacao executada pelo repository.
+
+                Returns
+                -------
+                Callable[[OperationFunc], OperationFunc]
+                    Decorator que adiciona span e log seguro de falha.
+                """
+
+                def decorator(func: OperationFunc) -> OperationFunc:
+                    @wraps(func)
+                    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+                        with tracer.start_as_current_span(
+                            f"object_storage.repository.{operation}",
+                        ) as span:
+                            span.set_attribute("app.layer", "repository")
+                            span.set_attribute("app.provider", "aws_s3")
+                            span.set_attribute("app.operation", operation)
+                            correlation_id = get_current_correlation_id()
+                            if correlation_id is not None:
+                                span.set_attribute("app.correlation_id", correlation_id)
+                            try:
+                                logger.info(
+                                    "Operacao de object storage iniciada.",
+                                    extra={
+                                        "event": "object_storage.operation_started",
+                                        "layer": "repository",
+                                        "provider": "aws_s3",
+                                        "operation": operation,
+                                        "correlation_id": correlation_id,
+                                    },
+                                )
+                                result = await func(*args, **kwargs)
+                                span.set_attribute("app.result", "success")
+                                logger.info(
+                                    "Operacao de object storage concluida.",
+                                    extra={
+                                        "event": "object_storage.operation_succeeded",
+                                        "layer": "repository",
+                                        "provider": "aws_s3",
+                                        "operation": operation,
+                                        "correlation_id": correlation_id,
+                                    },
+                                )
+                                return result
+                            except Exception as error:
+                                span.record_exception(error)
+                                span.set_status(Status(StatusCode.ERROR, type(error).__name__))
+                                span.set_attribute("app.result", "failed")
+                                logger.warning(
+                                    "Falha em operacao de object storage.",
+                                    extra={
+                                        "event": "object_storage.operation_failed",
+                                        "layer": "repository",
+                                        "provider": "aws_s3",
+                                        "operation": operation,
+                                        "error_type": type(error).__name__,
+                                        "correlation_id": correlation_id,
+                                    },
+                                )
+                                raise
+
+                    return cast(OperationFunc, wrapper)
+
+                return decorator
 
 
             class AwsS3ObjectStorageRepository:
@@ -3552,6 +3884,7 @@ def build_file_templates() -> list[FileTemplate]:
                     self._default_url_expires_seconds = default_url_expires_seconds
                     self._max_url_expires_seconds = max_url_expires_seconds
 
+                @_traced_operation("upload_object")
                 async def upload_object(
                     self,
                     key: str,
@@ -3589,6 +3922,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "Falha de conexao ao enviar objeto para AWS S3.",
                         ) from exc
 
+                @_traced_operation("download_object")
                 async def download_object(self, key: str) -> bytes:
                     """Baixa o conteudo bruto de um objeto no AWS S3."""
 
@@ -3612,6 +3946,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "Falha de conexao ao baixar objeto do AWS S3.",
                         ) from exc
 
+                @_traced_operation("object_exists")
                 async def object_exists(self, key: str) -> bool:
                     """Indica se um objeto existe no AWS S3."""
 
@@ -3622,6 +3957,7 @@ def build_file_templates() -> list[FileTemplate]:
 
                     return True
 
+                @_traced_operation("get_object_metadata")
                 async def get_object_metadata(self, key: str) -> ObjectStorageMetadata:
                     """Busca metadados tecnicos de um objeto no AWS S3."""
 
@@ -3652,6 +3988,7 @@ def build_file_templates() -> list[FileTemplate]:
                         metadata=dict(response.get("Metadata", {}) or {}),
                     )
 
+                @_traced_operation("list_objects")
                 async def list_objects(
                     self,
                     prefix: str = "",
@@ -3708,6 +4045,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "Falha de conexao ao listar objetos no AWS S3.",
                         ) from exc
 
+                @_traced_operation("delete_object")
                 async def delete_object(self, key: str) -> None:
                     """Remove um objeto do AWS S3."""
 
@@ -3725,6 +4063,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "Falha de conexao ao remover objeto do AWS S3.",
                         ) from exc
 
+                @_traced_operation("create_folder")
                 async def create_folder(self, prefix: str) -> None:
                     """Cria uma pasta virtual no AWS S3."""
 
@@ -3734,6 +4073,7 @@ def build_file_templates() -> list[FileTemplate]:
 
                     await self.upload_object(key=f"{folder_key}/", content=b"", overwrite=True)
 
+                @_traced_operation("delete_folder")
                 async def delete_folder(self, prefix: str) -> int:
                     """Remove objetos abaixo de uma pasta virtual no AWS S3."""
 
@@ -3753,6 +4093,7 @@ def build_file_templates() -> list[FileTemplate]:
 
                     return len(objects)
 
+                @_traced_operation("create_access_url")
                 async def create_access_url(
                     self,
                     key: str,
@@ -3814,7 +4155,7 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
-            "src/repositories/object_storage/factory.py",
+            "src/repository/object_storage/factory.py",
             '''
             """Cria repositories de object storage a partir de settings e clients."""
 
@@ -3823,10 +4164,10 @@ def build_file_templates() -> list[FileTemplate]:
             from typing import Any
 
             from src.configs.settings import Settings
-            from src.repositories.object_storage.exceptions import (
+            from src.repository.object_storage.exceptions import (
                 ObjectStorageConfigurationError,
             )
-            from src.repositories.object_storage.interface import ObjectStorageRepository
+            from src.repository.object_storage.interface import ObjectStorageRepository
 
 
             def build_object_storage_repository(
@@ -3856,7 +4197,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "Configure OBJECT_STORAGE__CONTAINER_NAME para usar Azure Blob.",
                         )
 
-                    from src.repositories.object_storage.azure_blob import (
+                    from src.repository.object_storage.azure_blob import (
                         AzureBlobStorageRepository,
                     )
 
@@ -3875,7 +4216,7 @@ def build_file_templates() -> list[FileTemplate]:
                         "Configure OBJECT_STORAGE__BUCKET_NAME para usar AWS S3.",
                     )
 
-                from src.repositories.object_storage.aws_s3 import AwsS3ObjectStorageRepository
+                from src.repository.object_storage.aws_s3 import AwsS3ObjectStorageRepository
 
                 return AwsS3ObjectStorageRepository(
                     client,
@@ -3899,9 +4240,11 @@ def build_file_templates() -> list[FileTemplate]:
             '''
             """Expoe endpoint publico de health check."""
 
+            import logging
             from typing import Annotated
 
             from fastapi import APIRouter, Depends, Request, status
+            from opentelemetry import trace
 
             from src.configs.settings import Settings, get_settings
             from src.models.health.health_response import (
@@ -3912,6 +4255,8 @@ def build_file_templates() -> list[FileTemplate]:
 
 
             router = APIRouter(tags=["health"])
+            logger = logging.getLogger("app.routes.health")
+            tracer = trace.get_tracer("app.routes.health")
 
 
             @router.get(
@@ -3948,17 +4293,42 @@ def build_file_templates() -> list[FileTemplate]:
                     Envelope com status operacional e versoes publicas.
                 """
 
-                response_context = await build_response_context(
-                    request=request,
-                    settings=settings,
-                )
-                return HealthEnvelopeResponse(
-                    data=HealthResponse(
-                        status="ok",
-                    ),
-                    meta=response_context.meta,
-                    links=response_context.links,
-                )
+                correlation_id = getattr(request.state, "correlation_id", None)
+                with tracer.start_as_current_span("health.endpoint.get_health") as span:
+                    span.set_attribute("app.layer", "endpoint")
+                    span.set_attribute("app.operation", "get_health")
+                    if correlation_id is not None:
+                        span.set_attribute("app.correlation_id", correlation_id)
+
+                    logger.info(
+                        "Health check recebido.",
+                        extra={
+                            "event": "health.request_received",
+                            "layer": "endpoint",
+                            "correlation_id": correlation_id,
+                        },
+                    )
+                    response_context = await build_response_context(
+                        request=request,
+                        settings=settings,
+                    )
+                    span.set_attribute("app.result", "ok")
+                    logger.info(
+                        "Health check respondido com sucesso.",
+                        extra={
+                            "event": "health.request_succeeded",
+                            "layer": "endpoint",
+                            "status": "ok",
+                            "correlation_id": correlation_id,
+                        },
+                    )
+                    return HealthEnvelopeResponse(
+                        data=HealthResponse(
+                            status="ok",
+                        ),
+                        meta=response_context.meta,
+                        links=response_context.links,
+                    )
             ''',
         ),
         FileTemplate(
