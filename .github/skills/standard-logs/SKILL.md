@@ -84,7 +84,7 @@ async def log_repository_error(operation: str, error: Exception, context: dict[s
 
 ```python
 from src.logger import logger
-from src.models.users.data.user_response import UserResponse
+from src.models.users.user_response import UserResponse
 
 
 class UserService:
