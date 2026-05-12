@@ -1912,30 +1912,22 @@ def build_file_templates() -> list[FileTemplate]:
             '"""Modelos do endpoint de health check."""\n',
         ),
         FileTemplate(
-            "src/models/health/data/__init__.py",
-            '"""Contratos HTTP do endpoint de health check."""\n',
+            "src/models/utils/__init__.py",
+            '"""Modelos utilitarios compartilhados por contratos HTTP."""\n',
         ),
         FileTemplate(
-            "src/models/health/data/health_response.py",
+            "src/models/utils/meta.py",
             '''
-            """Define contratos de resposta do health check."""
+            """Define metadados reutilizaveis para respostas HTTP."""
 
             from pydantic import BaseModel, ConfigDict, Field
 
 
-            class HealthResponse(BaseModel):
-                """Representa dados publicos de saude da aplicacao."""
+            class ResponseMeta(BaseModel):
+                """Representa metadados publicos associados a uma resposta HTTP."""
 
                 model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-                status: str = Field(
-                    ...,
-                    description="Estado operacional publico da aplicacao.",
-                    min_length=2,
-                    max_length=2,
-                    pattern="^ok$",
-                    examples=["ok"],
-                )
                 app_name: str = Field(
                     ...,
                     description="Nome publico da aplicacao.",
@@ -1960,7 +1952,7 @@ def build_file_templates() -> list[FileTemplate]:
                 )
                 datetime: str = Field(
                     ...,
-                    description="Data e hora do health check no timezone configurado da aplicacao.",
+                    description="Data e hora da resposta no timezone configurado da aplicacao.",
                     min_length=20,
                     max_length=64,
                     examples=["2026-05-08T14:25:00-03:00"],
@@ -1972,6 +1964,54 @@ def build_file_templates() -> list[FileTemplate]:
                     max_length=64,
                     examples=["America/Sao_Paulo"],
                 )
+            ''',
+        ),
+        FileTemplate(
+            "src/models/utils/links.py",
+            '''
+            """Define links reutilizaveis para respostas HTTP."""
+
+            from pydantic import BaseModel, ConfigDict, Field
+
+
+            class ResponseLinks(BaseModel):
+                """Representa links publicos associados a uma resposta HTTP."""
+
+                model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+                self: str = Field(
+                    ...,
+                    description="URL do recurso ou endpoint que produziu a resposta.",
+                    min_length=1,
+                    max_length=2048,
+                    examples=["http://localhost:8000/health"],
+                )
+            ''',
+        ),
+        FileTemplate(
+            "src/models/health/health_response.py",
+            '''
+            """Define contratos de resposta do health check."""
+
+            from pydantic import BaseModel, ConfigDict, Field
+
+            from src.models.utils.links import ResponseLinks
+            from src.models.utils.meta import ResponseMeta
+
+
+            class HealthResponse(BaseModel):
+                """Representa dados publicos de saude da aplicacao."""
+
+                model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+                status: str = Field(
+                    ...,
+                    description="Estado operacional publico da aplicacao.",
+                    min_length=2,
+                    max_length=2,
+                    pattern="^ok$",
+                    examples=["ok"],
+                )
 
 
             class HealthEnvelopeResponse(BaseModel):
@@ -1982,6 +2022,14 @@ def build_file_templates() -> list[FileTemplate]:
                 data: HealthResponse = Field(
                     ...,
                     description="Dados publicos de saude da aplicacao.",
+                )
+                meta: ResponseMeta = Field(
+                    ...,
+                    description="Metadados publicos da resposta.",
+                )
+                links: ResponseLinks = Field(
+                    ...,
+                    description="Links publicos relacionados a resposta.",
                 )
             ''',
         ),
@@ -3653,10 +3701,12 @@ def build_file_templates() -> list[FileTemplate]:
             from fastapi import APIRouter, Depends, Request, status
 
             from src.configs.settings import Settings, get_settings
-            from src.models.health.data.health_response import (
+            from src.models.health.health_response import (
                 HealthEnvelopeResponse,
                 HealthResponse,
             )
+            from src.models.utils.links import ResponseLinks
+            from src.models.utils.meta import ResponseMeta
 
 
             router = APIRouter(tags=["health"])
@@ -3701,7 +3751,13 @@ def build_file_templates() -> list[FileTemplate]:
                 request: Request,
                 settings: Annotated[Settings, Depends(get_settings)],
             ) -> HealthEnvelopeResponse:
-                """Retorna o estado publico de saude da aplicacao.
+                """Retorna a disponibilidade publica minima da aplicacao.
+
+                Este endpoint existe para probes de infraestrutura, diagnostico operacional
+                basico e validacao da versao de API resolvida para a requisicao. Ele nao
+                executa regras de negocio nem valida dependencias externas profundas; a
+                intencao de negocio e responder rapidamente se o processo HTTP esta ativo e
+                qual contexto publico da aplicacao gerou a resposta.
 
                 Parameters
                 ----------
@@ -3724,11 +3780,16 @@ def build_file_templates() -> list[FileTemplate]:
                 return HealthEnvelopeResponse(
                     data=HealthResponse(
                         status="ok",
+                    ),
+                    meta=ResponseMeta(
                         app_name=settings.app.name,
                         app_version=settings.app.version,
                         api_version=api_version,
                         datetime=_current_configured_datetime(settings=settings),
                         timezone=settings.time.timezone,
+                    ),
+                    links=ResponseLinks(
+                        self=str(request.url),
                     ),
                 )
             ''',

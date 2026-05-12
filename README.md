@@ -113,7 +113,8 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 │   ├── middlewares/
 │   │   └── api_version.py
 │   ├── models/
-│   │   └── health/
+│   │   ├── health/
+│   │   └── utils/
 │   ├── observability/
 │   │   ├── logging/
 │   │   └── telemetry/
@@ -134,7 +135,8 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 - `src/configs/`: carregamento de settings, clients e providers compartilhados.
 - `src/configs/values_domains/`: modelos Pydantic separados por dominio de configuracao.
 - `src/middlewares/api_version.py`: resolucao da versao da API por header.
-- `src/routes/health/`: endpoint `/health` com envelope de resposta e metadados da aplicacao.
+- `src/models/utils/`: contratos compartilhados para `meta` e `links` em respostas HTTP.
+- `src/routes/health/`: endpoint `/health` com envelope `data`, `meta` e `links`.
 - `src/observability/`: logging estruturado e setup de tracing OpenTelemetry.
 - `src/repositories/object_storage/`: interface, factory e implementacoes para Azure Blob e AWS S3.
 - `src/services/`: camada reservada para regras de negocio.
