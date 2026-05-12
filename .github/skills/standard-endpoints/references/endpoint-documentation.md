@@ -11,16 +11,16 @@ Use este guia para endpoints com OpenAPI rico: request, response, erro e exemplo
 - Exemplos de response de sucesso pertencem ao modelo de response em `standard-data-models`, usando `Field(examples=...)` e `model_config.json_schema_extra`.
 - Evite duplicar exemplos de sucesso em `Body(...)` ou em `responses.content` quando o modelo Pydantic já documenta o schema.
 - Exemplos de erro devem seguir `standard-errors`.
-- A docstring explica intenção e contrato do endpoint, não regra de negócio.
+- A docstring explica intenção de negócio, contrato do endpoint e limites deliberados da operação; ela não implementa regra de negócio.
 
 ## Exemplo
 
 ```python
 from fastapi import APIRouter, Depends, status
 
-from src.models.common.data.error_response import ErrorResponse
-from src.models.users.data.user_create_request import UserCreateRequest
-from src.models.users.data.user_response import UserEnvelopeResponse
+from src.models.common.error_response import ErrorResponse
+from src.models.users.user_create_request import UserCreateRequest
+from src.models.users.user_response import UserEnvelopeResponse
 from src.services.users.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -60,7 +60,11 @@ async def create_user(
     payload: UserCreateRequest,
     service: UserService = Depends(),
 ) -> UserEnvelopeResponse:
-    """Cria um usuário e retorna o contrato público.
+    """Cria um usuário ativo a partir dos dados públicos recebidos.
+
+    Este endpoint inicia o ciclo de vida de uma conta de usuário no domínio da
+    aplicação. A rota apenas recebe o contrato HTTP, delega a operação ao
+    service e devolve o envelope público criado.
 
     Parameters
     ----------

@@ -16,10 +16,10 @@ Use status codes de forma previsível para reduzir ambiguidade no contrato da AP
 ```python
 from fastapi import APIRouter, Depends, Response, status
 
-from src.models.users.data.user_response import UserEnvelopeResponse
+from src.models.users.user_response import UserEnvelopeResponse
 from src.services.users.user_service import UserService
 
-router = APIRouter( tags=["users"])
+router = APIRouter(tags=["users"])
 
 
 @router.get(
@@ -34,7 +34,12 @@ async def get_user(
     user_id: str,
     service: UserService = Depends(),
 ) -> UserEnvelopeResponse | Response:
-    """Retorna um usuário pelo identificador público."""
+    """Consulta a visão pública de um usuário pelo identificador.
+
+    Este endpoint atende leituras de estado de uma conta já criada e retorna
+    `204` quando o identificador não representa um usuário disponível para
+    exposição pública.
+    """
 
     user = await service.get_user_response(user_id=user_id)
     if user is None:

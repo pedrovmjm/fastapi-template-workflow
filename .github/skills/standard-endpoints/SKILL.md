@@ -25,19 +25,24 @@ Use esta skill ao criar ou revisar rotas FastAPI.
 - Paginação deve seguir contrato explícito com total, página, tamanho e total de páginas.
 - Endpoints não devem conter regra de negócio; delegue para services.
 - Use modelos de resposta Pydantic em `data`.
+- Query params devem ser declarados dentro da assinatura do endpoint com `Query`, preferencialmente via `Annotated[..., Query(...)]`.
+- Descrição, limites, exemplos e padrões de query params pertencem ao endpoint, porque dependem da intenção de negócio daquela rota; não coloque essa metadata em `Field` de modelo Pydantic.
 - Retornos devem ser coerentes com OpenAPI por meio de `responses`.
 - A definição de modelos, wrappers, `meta`, `links` e paginação pertence à skill `standard-data-models`; aqui apenas use esses contratos.
 - Modelos de request e response usados em endpoints públicos devem trazer exemplos no próprio modelo Pydantic para completar a documentação do FastAPI.
 - A definição de responses de erro pertence à skill `standard-errors`; aqui apenas declare os códigos esperados em `responses`.
 - Endpoints públicos devem ter documentação completa com `summary`, `description`, `response_model`, `responses` e exemplos quando aplicável.
+- Docstrings de rotas devem explicar a intenção de negócio do endpoint, o estado de negócio lido ou alterado e limites deliberados da operação.
 
 ## Exemplo de Rotas
 
 ```python
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
-from src.models.users.data.user_create_request import UserCreateRequest
-from src.models.users.data.user_response import UserCollectionResponse, UserEnvelopeResponse
+from src.models.users.user_create_request import UserCreateRequest
+from src.models.users.user_response import UserCollectionResponse, UserEnvelopeResponse
 from src.services.users.user_service import UserService
 
 router = APIRouter(tags=["users"])
@@ -53,7 +58,12 @@ async def create_user(
     payload: UserCreateRequest,
     service: UserService = Depends(),
 ) -> UserEnvelopeResponse:
-    """Cria um usuário e retorna o contrato público.
+    """Cria um usuário ativo a partir dos dados públicos recebidos.
+
+    Este endpoint inicia o ciclo de vida de uma conta de usuário no domínio da
+    aplicação. A regra de criação, validações de negócio e persistência ficam no
+    service; a rota apenas recebe o contrato HTTP, delega a operação e devolve o
+    envelope público.
 
     Parameters
     ----------
@@ -84,7 +94,11 @@ async def get_user(
     user_id: str,
     service: UserService = Depends(),
 ) -> UserEnvelopeResponse | Response:
-    """Retorna um usuário pelo identificador público.
+    """Consulta a visão pública de um usuário pelo identificador.
+
+    Este endpoint atende telas e integrações que precisam verificar o estado de
+    uma conta já criada. Ele não altera dados de negócio e retorna `204` quando
+    o identificador não representa um usuário disponível para exposição pública.
 
     Parameters
     ----------
@@ -113,11 +127,19 @@ async def get_user(
 )
 async def list_users(
     request: Request,
-    page: int = Query(1, ge=1, le=100_000, description="Página solicitada."),
-    page_size: int = Query(25, ge=1, le=200, description="Quantidade de itens por página."),
+    page: Annotated[int, Query(ge=1, le=100_000, description="Página solicitada.")] = 1,
+    page_size: Annotated[
+        int,
+        Query(ge=1, le=200, description="Quantidade de itens por página."),
+    ] = 25,
     service: UserService = Depends(),
 ) -> UserCollectionResponse:
-    """Lista usuários com paginação e links navegacionais.
+    """Lista usuários disponíveis para consulta operacional.
+
+    Este endpoint entrega uma coleção paginada para telas de gestão e integrações
+    de leitura. Ele preserva a ordenação e os filtros definidos pelo service,
+    limita o tamanho da página na própria rota e monta links navegacionais a
+    partir da URL recebida.
 
     Parameters
     ----------
@@ -149,7 +171,8 @@ async def list_users(
 - [ ] `GET` de item retorna `200` ou `204`.
 - [ ] Listas retornam `data`, `meta` e `links`.
 - [ ] Endpoint é assíncrono, tipado e sem regra de negócio.
-- [ ] Query params possuem limites mínimos e máximos.
+- [ ] Query params estão na assinatura do endpoint com `Query` e limites próprios da rota.
 - [ ] `responses` documenta os códigos esperados.
 - [ ] Documentação do endpoint inclui exemplos de sucesso e erro quando aplicável.
+- [ ] Docstrings de rotas explicam a intenção de negócio, não apenas HTTP/path.
 - [ ] Modelos Pydantic de request/response possuem exemplos para OpenAPI.

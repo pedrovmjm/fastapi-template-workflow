@@ -17,11 +17,11 @@ Use routers pequenos, coesos e orientados a recurso.
 ```python
 from fastapi import APIRouter, Depends, status
 
-from src.models.users.data.user_create_request import UserCreateRequest
-from src.models.users.data.user_response import UserEnvelopeResponse
+from src.models.users.user_create_request import UserCreateRequest
+from src.models.users.user_response import UserEnvelopeResponse
 from src.services.users.user_service import UserService
 
-router = APIRouter( tags=["users"])
+router = APIRouter(tags=["users"])
 
 
 @router.post(
@@ -33,7 +33,12 @@ async def create_user(
     payload: UserCreateRequest,
     service: UserService = Depends(),
 ) -> UserEnvelopeResponse:
-    """Cria um usuário e retorna o contrato público."""
+    """Cria um usuário ativo a partir dos dados públicos recebidos.
+
+    Este endpoint inicia o ciclo de vida de uma conta de usuário. A rota recebe
+    o contrato HTTP, delega regras de negócio para o service e devolve o
+    envelope público criado.
+    """
 
     user = await service.create_user(payload=payload)
     return UserEnvelopeResponse(data=user)
