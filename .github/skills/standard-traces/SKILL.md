@@ -31,7 +31,7 @@ Use esta skill ao instrumentar endpoints, services, repositories e integrações
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
-from src.models.users.data.user_response import UserResponse
+from src.models.users.user_response import UserResponse
 
 tracer = trace.get_tracer("app.users")
 
