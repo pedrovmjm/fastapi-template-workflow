@@ -1964,6 +1964,34 @@ def build_file_templates() -> list[FileTemplate]:
                     max_length=64,
                     examples=["America/Sao_Paulo"],
                 )
+                total_records: int | None = Field(
+                    None,
+                    description="Quantidade total de registros disponiveis; ausente quando a resposta nao e paginada.",
+                    ge=0,
+                    le=1_000_000,
+                    examples=[150],
+                )
+                total_pages: int | None = Field(
+                    None,
+                    description="Quantidade total de paginas disponiveis; ausente quando a resposta nao e paginada.",
+                    ge=0,
+                    le=100_000,
+                    examples=[6],
+                )
+                page: int | None = Field(
+                    None,
+                    description="Pagina atual solicitada; ausente quando a resposta nao e paginada.",
+                    ge=1,
+                    le=100_000,
+                    examples=[1],
+                )
+                page_size: int | None = Field(
+                    None,
+                    description="Quantidade maxima de itens por pagina; ausente quando a resposta nao e paginada.",
+                    ge=1,
+                    le=200,
+                    examples=[25],
+                )
             ''',
         ),
         FileTemplate(
@@ -1985,6 +2013,183 @@ def build_file_templates() -> list[FileTemplate]:
                     min_length=1,
                     max_length=2048,
                     examples=["http://localhost:8000/health"],
+                )
+                first: str | None = Field(
+                    None,
+                    description="URL da primeira pagina; ausente quando a resposta nao e paginada.",
+                    max_length=2048,
+                    examples=["http://localhost:8000/users?page=1&page_size=25"],
+                )
+                prev: str | None = Field(
+                    None,
+                    description="URL da pagina anterior; ausente quando nao existe pagina anterior.",
+                    max_length=2048,
+                    examples=["http://localhost:8000/users?page=1&page_size=25"],
+                )
+                next: str | None = Field(
+                    None,
+                    description="URL da proxima pagina; ausente quando nao existe proxima pagina.",
+                    max_length=2048,
+                    examples=["http://localhost:8000/users?page=3&page_size=25"],
+                )
+                last: str | None = Field(
+                    None,
+                    description="URL da ultima pagina; ausente quando a resposta nao e paginada.",
+                    max_length=2048,
+                    examples=["http://localhost:8000/users?page=6&page_size=25"],
+                )
+            ''',
+        ),
+        FileTemplate(
+            "src/models/utils/response_context.py",
+            '''
+            """Monta metadados e links compartilhados por respostas HTTP."""
+
+            from dataclasses import dataclass
+            from datetime import datetime
+            from math import ceil
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+            from fastapi import Request
+
+            from src.configs.settings import Settings
+            from src.models.utils.links import ResponseLinks
+            from src.models.utils.meta import ResponseMeta
+
+
+            @dataclass(frozen=True)
+            class ResponseContext:
+                """Agrupa metadados e links calculados para uma resposta HTTP."""
+
+                meta: ResponseMeta
+                links: ResponseLinks
+
+
+            def _current_configured_datetime(settings: Settings) -> str:
+                """Retorna data e hora no timezone configurado.
+
+                Parameters
+                ----------
+                settings : Settings
+                    Configuracoes finais contendo o timezone da aplicacao.
+
+                Returns
+                -------
+                str
+                    Datetime ISO 8601 com offset do timezone configurado.
+
+                Raises
+                ------
+                ZoneInfoNotFoundError
+                    Quando o timezone configurado nao existir no sistema.
+                """
+
+                try:
+                    timezone = ZoneInfo(settings.time.timezone)
+                except ZoneInfoNotFoundError:
+                    raise
+
+                return datetime.now(tz=timezone).isoformat(timespec="seconds")
+
+
+            def _resolve_total_pages(total_records: int | None, page_size: int | None) -> int | None:
+                """Calcula total de paginas quando dados de paginacao estao disponiveis."""
+
+                if total_records is None or page_size is None:
+                    return None
+
+                if total_records == 0:
+                    return 0
+
+                return ceil(total_records / page_size)
+
+
+            def _build_page_url(request: Request, *, page: int, page_size: int) -> str:
+                """Monta URL absoluta para uma pagina especifica."""
+
+                return str(request.url.include_query_params(page=page, page_size=page_size))
+
+
+            async def build_response_context(
+                *,
+                request: Request,
+                settings: Settings,
+                total_records: int | None = None,
+                total_pages: int | None = None,
+                page: int | None = None,
+                page_size: int | None = None,
+            ) -> ResponseContext:
+                """Monta metadados e links dinamicos para uma resposta HTTP.
+
+                Parameters
+                ----------
+                request : Request
+                    Requisicao HTTP usada para obter URL e versao de API resolvida.
+                settings : Settings
+                    Configuracoes finais da aplicacao usadas nos metadados publicos.
+                total_records : int | None
+                    Quantidade total de registros quando a resposta for paginada.
+                total_pages : int | None
+                    Quantidade total de paginas quando ja calculada pelo service.
+                page : int | None
+                    Pagina atual quando a resposta for paginada.
+                page_size : int | None
+                    Tamanho da pagina quando a resposta for paginada.
+
+                Returns
+                -------
+                ResponseContext
+                    Contexto contendo `meta` e `links` prontos para o envelope de resposta.
+                """
+
+                api_version = getattr(
+                    request.state,
+                    "api_version",
+                    settings.app.default_api_version,
+                )
+                resolved_total_pages = total_pages
+                if resolved_total_pages is None:
+                    resolved_total_pages = _resolve_total_pages(
+                        total_records=total_records,
+                        page_size=page_size,
+                    )
+
+                first_url: str | None = None
+                prev_url: str | None = None
+                next_url: str | None = None
+                last_url: str | None = None
+                if page is not None and page_size is not None and resolved_total_pages is not None:
+                    if resolved_total_pages > 0:
+                        first_url = _build_page_url(request, page=1, page_size=page_size)
+                        last_url = _build_page_url(
+                            request,
+                            page=resolved_total_pages,
+                            page_size=page_size,
+                        )
+                    if page > 1:
+                        prev_url = _build_page_url(request, page=page - 1, page_size=page_size)
+                    if resolved_total_pages > 0 and page < resolved_total_pages:
+                        next_url = _build_page_url(request, page=page + 1, page_size=page_size)
+
+                return ResponseContext(
+                    meta=ResponseMeta(
+                        app_name=settings.app.name,
+                        app_version=settings.app.version,
+                        api_version=api_version,
+                        datetime=_current_configured_datetime(settings=settings),
+                        timezone=settings.time.timezone,
+                        total_records=total_records,
+                        total_pages=resolved_total_pages,
+                        page=page,
+                        page_size=page_size,
+                    ),
+                    links=ResponseLinks(
+                        self=str(request.url),
+                        first=first_url,
+                        prev=prev_url,
+                        next=next_url,
+                        last=last_url,
+                    ),
                 )
             ''',
         ),
@@ -3694,9 +3899,7 @@ def build_file_templates() -> list[FileTemplate]:
             '''
             """Expoe endpoint publico de health check."""
 
-            from datetime import datetime
             from typing import Annotated
-            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
             from fastapi import APIRouter, Depends, Request, status
 
@@ -3705,43 +3908,16 @@ def build_file_templates() -> list[FileTemplate]:
                 HealthEnvelopeResponse,
                 HealthResponse,
             )
-            from src.models.utils.links import ResponseLinks
-            from src.models.utils.meta import ResponseMeta
+            from src.models.utils.response_context import build_response_context
 
 
             router = APIRouter(tags=["health"])
 
 
-            def _current_configured_datetime(settings: Settings) -> str:
-                """Retorna data e hora no timezone configurado.
-
-                Parameters
-                ----------
-                settings : Settings
-                    Configuracoes finais contendo o timezone da aplicacao.
-
-                Returns
-                -------
-                str
-                    Datetime ISO 8601 com offset do timezone configurado.
-
-                Raises
-                ------
-                ZoneInfoNotFoundError
-                    Quando o timezone configurado nao existir no sistema.
-                """
-
-                try:
-                    timezone = ZoneInfo(settings.time.timezone)
-                except ZoneInfoNotFoundError:
-                    raise
-
-                return datetime.now(tz=timezone).isoformat(timespec="seconds")
-
-
             @router.get(
                 "/health",
                 response_model=HealthEnvelopeResponse,
+                response_model_exclude_none=True,
                 status_code=status.HTTP_200_OK,
                 summary="Verifica a saude da aplicacao.",
                 description="Retorna metadados publicos para probes e diagnostico basico.",
@@ -3772,25 +3948,16 @@ def build_file_templates() -> list[FileTemplate]:
                     Envelope com status operacional e versoes publicas.
                 """
 
-                api_version = getattr(
-                    request.state,
-                    "api_version",
-                    settings.app.default_api_version,
+                response_context = await build_response_context(
+                    request=request,
+                    settings=settings,
                 )
                 return HealthEnvelopeResponse(
                     data=HealthResponse(
                         status="ok",
                     ),
-                    meta=ResponseMeta(
-                        app_name=settings.app.name,
-                        app_version=settings.app.version,
-                        api_version=api_version,
-                        datetime=_current_configured_datetime(settings=settings),
-                        timezone=settings.time.timezone,
-                    ),
-                    links=ResponseLinks(
-                        self=str(request.url),
-                    ),
+                    meta=response_context.meta,
+                    links=response_context.links,
                 )
             ''',
         ),

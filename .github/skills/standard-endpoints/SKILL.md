@@ -21,10 +21,12 @@ Use esta skill ao criar ou revisar rotas FastAPI.
 - Endpoints devem ser `async def` e totalmente tipados.
 - `POST` de criação deve retornar `201 Created`.
 - `GET` de item deve retornar `200 OK` quando houver dados e `204 No Content` quando não houver dados.
-- Listagens devem retornar envelope com `data`, `meta` e `links`.
+- Todo `GET` com body (`200 OK`) deve retornar envelope com `data`, `meta` e `links`, mesmo quando não for paginado.
+- Listagens paginadas devem retornar `data`, `meta` e `links`, com dados de paginação dentro de `meta` e links navegacionais quando aplicável.
 - Paginação deve seguir contrato explícito com total, página, tamanho e total de páginas.
 - Endpoints não devem conter regra de negócio; delegue para services.
 - Use modelos de resposta Pydantic em `data`.
+- Rotas `GET` devem usar o helper assíncrono compartilhado para montar `meta` e `links` dinamicamente a partir de `Request`, `Settings` e dados opcionais de paginação.
 - Query params devem ser declarados dentro da assinatura do endpoint com `Query`, preferencialmente via `Annotated[..., Query(...)]`.
 - Descrição, limites, exemplos e padrões de query params pertencem ao endpoint, porque dependem da intenção de negócio daquela rota; não coloque essa metadata em `Field` de modelo Pydantic.
 - Retornos devem ser coerentes com OpenAPI por meio de `responses`.
@@ -41,8 +43,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
+from src.configs.settings import Settings, get_settings
 from src.models.users.user_create_request import UserCreateRequest
 from src.models.users.user_response import UserCollectionResponse, UserEnvelopeResponse
+from src.models.utils.response_context import build_response_context
 from src.services.users.user_service import UserService
 
 router = APIRouter(tags=["users"])
@@ -91,7 +95,9 @@ async def create_user(
     },
 )
 async def get_user(
+    request: Request,
     user_id: str,
+    settings: Annotated[Settings, Depends(get_settings)],
     service: UserService = Depends(),
 ) -> UserEnvelopeResponse | Response:
     """Consulta a visão pública de um usuário pelo identificador.
@@ -102,8 +108,12 @@ async def get_user(
 
     Parameters
     ----------
+    request : Request
+        Requisição HTTP usada para montar metadados e links da resposta.
     user_id : str
         Identificador público do usuário.
+    settings : Settings
+        Configurações finais usadas nos metadados públicos.
     service : UserService
         Serviço responsável pela consulta.
 
@@ -117,7 +127,12 @@ async def get_user(
     if user is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    return UserEnvelopeResponse(data=user)
+    response_context = await build_response_context(request=request, settings=settings)
+    return UserEnvelopeResponse(
+        data=user,
+        meta=response_context.meta,
+        links=response_context.links,
+    )
 
 
 @router.get(
@@ -127,6 +142,7 @@ async def get_user(
 )
 async def list_users(
     request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
     page: Annotated[int, Query(ge=1, le=100_000, description="Página solicitada.")] = 1,
     page_size: Annotated[
         int,
@@ -149,6 +165,8 @@ async def list_users(
         Página solicitada.
     page_size : int
         Quantidade máxima de itens por página.
+    settings : Settings
+        Configurações finais usadas nos metadados públicos.
     service : UserService
         Serviço responsável pela listagem.
 
@@ -158,10 +176,21 @@ async def list_users(
         Envelope paginado com `data`, `meta` e `links`.
     """
 
-    return await service.list_users(
-        base_url=str(request.url.include_query_params()),
+    users_page = await service.list_users(
         page=page,
         page_size=page_size,
+    )
+    response_context = await build_response_context(
+        request=request,
+        settings=settings,
+        total_records=users_page.total_records,
+        page=page,
+        page_size=page_size,
+    )
+    return UserCollectionResponse(
+        data=users_page.items,
+        meta=response_context.meta,
+        links=response_context.links,
     )
 ```
 
@@ -169,7 +198,8 @@ async def list_users(
 
 - [ ] `POST` retorna `201`.
 - [ ] `GET` de item retorna `200` ou `204`.
-- [ ] Listas retornam `data`, `meta` e `links`.
+- [ ] Todo `GET` com body retorna `data`, `meta` e `links`, mesmo sem paginação.
+- [ ] `meta` e `links` dos `GETs` são montados por helper assíncrono compartilhado.
 - [ ] Endpoint é assíncrono, tipado e sem regra de negócio.
 - [ ] Query params estão na assinatura do endpoint com `Query` e limites próprios da rota.
 - [ ] `responses` documenta os códigos esperados.

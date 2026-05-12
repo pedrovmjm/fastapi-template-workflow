@@ -8,15 +8,20 @@ Use status codes de forma previsível para reduzir ambiguidade no contrato da AP
 - `GET` de item retorna `200 OK` quando o recurso existe.
 - `GET` de item retorna `204 No Content` quando o recurso não existe e essa ausência é um resultado esperado.
 - `GET` de coleção retorna `200 OK`, mesmo quando `data=[]`.
+- Todo `GET` com `200 OK` e body retorna `data`, `meta` e `links`; `204` continua sem body.
 - `204` não deve ter body.
 - Erros de validação de payload ficam em `422`, respeitando o padrão do FastAPI, salvo decisão explícita do projeto.
 
 ## Exemplo de `GET` com `204`
 
 ```python
-from fastapi import APIRouter, Depends, Response, status
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, Request, Response, status
+
+from src.configs.settings import Settings, get_settings
 from src.models.users.user_response import UserEnvelopeResponse
+from src.models.utils.response_context import build_response_context
 from src.services.users.user_service import UserService
 
 router = APIRouter(tags=["users"])
@@ -31,7 +36,9 @@ router = APIRouter(tags=["users"])
     },
 )
 async def get_user(
+    request: Request,
     user_id: str,
+    settings: Annotated[Settings, Depends(get_settings)],
     service: UserService = Depends(),
 ) -> UserEnvelopeResponse | Response:
     """Consulta a visão pública de um usuário pelo identificador.
@@ -45,5 +52,10 @@ async def get_user(
     if user is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    return UserEnvelopeResponse(data=user)
+    response_context = await build_response_context(request=request, settings=settings)
+    return UserEnvelopeResponse(
+        data=user,
+        meta=response_context.meta,
+        links=response_context.links,
+    )
 ```

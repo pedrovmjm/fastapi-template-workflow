@@ -12,6 +12,7 @@ Use este guia para endpoints com OpenAPI rico: request, response, erro e exemplo
 - Evite duplicar exemplos de sucesso em `Body(...)` ou em `responses.content` quando o modelo Pydantic já documenta o schema.
 - Exemplos de erro devem seguir `standard-errors`.
 - A docstring explica intenção de negócio, contrato do endpoint e limites deliberados da operação; ela não implementa regra de negócio.
+- Todo `GET` documentado com body deve expor `data`, `meta` e `links`; a montagem dinâmica desses blocos pertence ao helper assíncrono compartilhado.
 
 ## Exemplo
 
