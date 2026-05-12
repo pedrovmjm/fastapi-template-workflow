@@ -52,7 +52,7 @@ Esta skill não é dona de:
 ```python
 import asyncio
 
-from src.models.users.data.user_response import UserResponse
+from src.models.users.user_response import UserResponse
 from src.repository.users.user_repository import UserRepository
 
 
