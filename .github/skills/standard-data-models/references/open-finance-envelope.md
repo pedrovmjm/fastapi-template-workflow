@@ -9,6 +9,9 @@ expressando response, sem codificar `DataWrapper` ou `List`.
 
 Modelos reutilizáveis de `meta`, `links` e paginação compartilhada ficam em
 `src/models/utils/`. Use essa pasta para contratos comuns entre domínios.
+Rotas `GET` devem montar esses objetos com helper assíncrono compartilhado, por
+exemplo `build_response_context`, para manter URL, versão de API, timezone e
+paginação consistentes.
 
 ## Recurso Único
 
@@ -18,6 +21,9 @@ recurso. Não crie arquivos ou classes como `data_wrapper_user_response.py` ou
 
 ```python
 from pydantic import BaseModel, ConfigDict, Field
+
+from src.models.utils.links import ResponseLinks
+from src.models.utils.meta import ResponseMeta
 
 
 class UserEnvelopeResponse(BaseModel):
@@ -34,6 +40,14 @@ class UserEnvelopeResponse(BaseModel):
     data: UserResponse = Field(
         ...,
         description="Dados públicos do usuário retornado pela operação.",
+    )
+    meta: ResponseMeta = Field(
+        ...,
+        description="Metadados públicos da resposta.",
+    )
+    links: ResponseLinks = Field(
+        ...,
+        description="Links públicos relacionados à resposta.",
     )
 ```
 
@@ -153,6 +167,7 @@ class UserCollectionResponse(BaseModel):
 
 ## Regras de Status HTTP Relacionadas
 
+- `GET` com `200 OK` retorna `data`, `meta` e `links`, mesmo quando a resposta não é paginada.
 - `GET` de item sem dados retorna `204` sem body.
 - `GET` de coleção retorna `200` com `data=[]` quando a coleção está vazia e retornando links e meta válidos.
 - `POST` de criação retorna `201` com envelope de response no arquivo `*_response.py` do recurso.

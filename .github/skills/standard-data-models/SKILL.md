@@ -58,6 +58,8 @@ Esta skill não é dona de:
 - Modelos de banco de dados não devem carregar exemplos OpenAPI; exemplos pertencem aos modelos públicos de request/response.
 - Não crie arquivos/domínios ou nomes públicos próprios baseados em `DataWrapper`, `Wrapper` ou `List`.
 - Envelopes, listas e paginação que pertencem ao contrato de response devem ficar no arquivo de response do recurso, por exemplo `user_response.py`.
+- Envelopes usados por `GET` devem incluir `data`, `meta` e `links`, inclusive para recurso único não paginado.
+- A montagem dinâmica de `meta` e `links` em rotas `GET` deve usar helper assíncrono compartilhado em `src/models/utils/`.
 
 ## Estrutura Recomendada
 
@@ -69,7 +71,8 @@ src/
     │   └── user_response.py
     └── utils/
         ├── links.py
-        └── meta.py
+        ├── meta.py
+        └── response_context.py
 ```
 
 ## Exemplo Completo de `UserResponse`
@@ -119,6 +122,9 @@ class UserResponse(BaseModel):
 ```python
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.models.utils.links import ResponseLinks
+from src.models.utils.meta import ResponseMeta
+
 
 class UserEnvelopeResponse(BaseModel):
     """Envelope de dados para resposta de usuário.
@@ -127,11 +133,15 @@ class UserEnvelopeResponse(BaseModel):
     ----------
     data : UserResponse
         Objeto principal retornado pela operação.
+    meta : ResponseMeta
+        Metadados públicos da resposta.
+    links : ResponseLinks
+        Links públicos relacionados à resposta.
 
     Notes
     -----
     Use este envelope quando o endpoint retorna apenas o recurso principal,
-    sem metadados de paginação, links ou lista de itens.
+    sem lista de itens. Em rotas `GET`, `meta` e `links` continuam obrigatórios.
     Esta classe deve ficar no mesmo arquivo do contrato de response do
     recurso, por exemplo `user_response.py`.
     """
@@ -141,6 +151,14 @@ class UserEnvelopeResponse(BaseModel):
     data: UserResponse = Field(
         ...,
         description="Dados públicos do usuário retornado pela operação.",
+    )
+    meta: ResponseMeta = Field(
+        ...,
+        description="Metadados públicos da resposta.",
+    )
+    links: ResponseLinks = Field(
+        ...,
+        description="Links públicos relacionados à resposta.",
     )
 ```
 
@@ -154,6 +172,8 @@ class UserEnvelopeResponse(BaseModel):
 - [ ] Strings possuem `min_length` e `max_length`.
 - [ ] Números possuem limite inferior e superior.
 - [ ] Responses não expõem dados sensíveis.
+- [ ] Envelopes de `GET` incluem `data`, `meta` e `links`, mesmo sem paginação.
+- [ ] `meta` e `links` de `GET` são montados por helper assíncrono compartilhado.
 - [ ] Modelos internos de banco não vazam para endpoints.
 - [ ] Exemplos OpenAPI ficam nos modelos públicos de request/response.
 - [ ] Envelopes, listas e paginação de response ficam no arquivo `*_response.py` do recurso.
