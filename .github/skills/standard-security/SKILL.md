@@ -34,6 +34,8 @@ Esta skill não é dona de:
 | Quando revisar riscos Web/API em FastAPI. | [OWASP Web e API em FastAPI](references/owasp-web-api.md) |
 | Quando houver LLM, agentes, prompts ou tools. | [OWASP LLM e GenAI](references/owasp-llm-genai.md) |
 | Quando precisar aprofundar autenticação, autorização e escopos. | [Autenticação, autorização e escopos](references/authentication-authorization.md) |
+| Quando auth envolver Azure AD, dependency injection, posse de recurso, services ou repositories. | `../fastapi-best-practices/references/authentication-authorization.md` |
+| Quando houver agentes OpenAI Agents SDK, LangGraph, tools, guardrails, logs ou traces de agente. | `../start-agents/SKILL.md` |
 | Quando precisar aprofundar proteção de dados, secrets e abuso. | [Proteção de dados, secrets e abuso](references/data-protection-and-abuse.md) |
 
 ## Regras Obrigatórias

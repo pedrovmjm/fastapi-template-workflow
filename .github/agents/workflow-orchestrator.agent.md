@@ -32,6 +32,8 @@ Use estas skills apenas como referências para delegação. Não execute uma ski
 | Composição do app, app factory, lifespan, dependency injection ou arquitetura da aplicação | `.github/skills/fastapi-best-practices/SKILL.md` | `sdd-planner` ou `coder-engineer` |
 | Fronteiras entre domínio, transporte HTTP, persistência e configuração | `.github/skills/domain/SKILL.md` | `sdd-planner`, `sdd-refiner` ou `coder-engineer` |
 | Riscos OWASP, auth, secrets, CORS, rate limiting ou proteção de dados | `.github/skills/standard-security/SKILL.md` | `security-reviewer` |
+| Azure AD, posse de recurso, auth por camada, services ou repositories filtrados por usuario | `.github/skills/fastapi-best-practices/references/authentication-authorization.md`, `.github/skills/standard-security/SKILL.md` | `sdd-planner`, `coder-engineer`, depois `security-reviewer` |
+| Agentes OpenAI Agents SDK, LangGraph, tools, guardrails, logs ou traces agenticos | `.github/skills/standard-agents/SKILL.md`, `.github/skills/standard-security/SKILL.md`, `.github/skills/standard-logs/SKILL.md`, `.github/skills/standard-traces/SKILL.md` | `sdd-planner`, `coder-engineer`, depois `security-reviewer` e `test-engineer` |
 | Estratégia de testes unitários, integração, E2E, fixtures ou doubles | `.github/skills/standard-tests/SKILL.md` | `test-engineer` |
 | Lint, format, imports, style ou type check | Configs do projeto em `pyproject.toml`, `tox.ini`, `Makefile` ou workflows | `lint-engineer` |
 | Endpoints, contratos Pydantic ou erros públicos | `.github/skills/standard-endpoints/SKILL.md`, `.github/skills/standard-data-models/SKILL.md`, `.github/skills/standard-errors/SKILL.md` | `sdd-planner`, `sdd-refiner`, `coder-engineer`, depois `security-reviewer`, depois `test-engineer` |
@@ -71,6 +73,8 @@ Use este fluxo como padrao:
 - No handoff para `coder-engineer`, declare explicitamente que `tests/**`, fixtures, snapshots, `conftest.py`, configuracoes de pytest e comandos de teste/lint/type check estao fora do escopo do coder.
 - Em qualquer handoff de implementacao que altere codigo Python, encaminhe explicitamente `.github/skills/standard-docstrings/SKILL.md` ao `coder-engineer` e exija docstrings em pt-BR no formato NumPy para modulos, classes, funcoes e metodos publicos novos ou alterados.
 - Em qualquer handoff de implementacao que crie ou altere services/repositories, encaminhe explicitamente `.github/skills/standard-logs/SKILL.md` e `.github/skills/standard-traces/SKILL.md` ao `coder-engineer` e exija logs/spans ou justificativa explicita para ausencia.
+- Em qualquer handoff que envolva endpoint autenticado, Azure AD, owner, tenant, grupos ou roles, encaminhe `.github/skills/fastapi-best-practices/references/authentication-authorization.md`.
+- Em qualquer handoff que envolva OpenAI Agents SDK, LangGraph, tools ou workflows agenticos, encaminhe `.github/skills/start-agents/SKILL.md`.
 - Delegue seguranca para `security-reviewer` antes de concluir qualquer mudanca que toque auth, dados pessoais, secrets, permissao, logs, traces, uploads, LLM, webhooks, CORS ou rate limiting.
 - Delegue testes para `test-engineer` depois da implementacao e da revisao de seguranca.
 - Delegue lint, format e type check para `lint-engineer` depois de testes ou apos correcoes relevantes.

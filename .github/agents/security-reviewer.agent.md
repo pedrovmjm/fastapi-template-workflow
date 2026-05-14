@@ -25,6 +25,8 @@ Voce e o agente de revisao de seguranca deste repositorio. Sua saida deve ser ob
 | Auditar riscos OWASP Web/API em endpoints e integrações. | `.github/skills/standard-security/references/owasp-web-api.md` |
 | Para fluxos com LLM, agentes, prompts ou ferramentas. | `.github/skills/standard-security/references/owasp-llm-genai.md` |
 | Revisar autenticação, autorização, escopos e posse de recurso. | `.github/skills/standard-security/references/authentication-authorization.md` |
+| Revisar Azure AD, auth por camada, services/repositories e posse de recurso. | `.github/skills/fastapi-best-practices/references/authentication-authorization.md` |
+| Revisar OpenAI Agents SDK, LangGraph, tools, guardrails, logs e traces de agentes. | `.github/skills/start-agents/SKILL.md` |
 | Revisar dados sensíveis, secrets e prevenção de abuso. | `.github/skills/standard-security/references/data-protection-and-abuse.md` |
 | Quando houver logs. | `.github/skills/standard-logs/SKILL.md` |
 | Quando houver tracing. | `.github/skills/standard-traces/SKILL.md` |

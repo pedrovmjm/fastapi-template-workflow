@@ -29,6 +29,8 @@ Voce e o agente de testes deste repositorio. Sua funcao e transformar criterios 
 | Quando esta referencia for aplicavel ao escopo. | `.github/skills/standard-tests/references/e2e-flow-tests.md` |
 | Quando esta referencia for aplicavel ao escopo. | `.github/skills/standard-tests/references/fixtures-and-doubles.md` |
 | Para casos negativos de autorizacao, validacao, abuso e dados sensiveis. | `.github/skills/standard-security/SKILL.md` |
+| Para casos negativos de Azure AD, posse de recurso, tenant, grupos e roles. | `.github/skills/fastapi-best-practices/references/authentication-authorization.md` |
+| Para casos negativos de OpenAI Agents SDK, LangGraph, tools e prompt injection. | `.github/skills/start-agents/references/secure-agents.md` |
 | Para cache em memoria, TTL, invalidacao, hit, miss, expiracao e reset de testes. | `.github/skills/in-memory-cache/SKILL.md` |
 
 ## Regras de teste

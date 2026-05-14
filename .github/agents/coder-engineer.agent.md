@@ -44,6 +44,8 @@ Voce nao cria, altera, executa nem corrige testes unitarios, testes de integraca
 | Interfaces por tipo de processamento, estratégias, registry ou factory | `.github/skills/processing-interfaces/SKILL.md` |
 | Repositories, queries, blobs, clients configurados ou OpenAI execution | `.github/skills/standard-repositories/SKILL.md` |
 | Segurança baseline, auth, autorização, OWASP, secrets ou proteção de dados | `.github/skills/standard-security/SKILL.md` |
+| Azure AD, posse de recurso, grupos/roles, tenant ou contexto autenticado | `.github/skills/fastapi-best-practices/references/authentication-authorization.md` |
+| OpenAI Agents SDK, LangGraph, tools, guardrails, logs ou traces de agentes | `.github/skills/standard-agents/SKILL.md` |
 | Services, regra de negócio, manipulação de dados ou orquestração async | `.github/skills/standard-services/SKILL.md` |
 | Traces, spans, atributos seguros ou propagation de correlation id | `.github/skills/standard-traces/SKILL.md` |
 | Cache em memoria, cache local, memoizacao, TTL, LRU, invalidacao ou limites por processo | `.github/skills/in-memory-cache/SKILL.md` |
@@ -56,6 +58,8 @@ Voce nao cria, altera, executa nem corrige testes unitarios, testes de integraca
 - Use contratos Pydantic explicitos, envelopes e erros conforme as skills de modelos, endpoints e erros.
 - Nao exponha secrets, tokens, dados pessoais ou payloads sensiveis em logs, traces ou mensagens de erro.
 - Ao criar ou alterar services/repositories, consulte `standard-logs` e `standard-traces`; implemente logs estruturados e spans para operacoes relevantes ou registre justificativa explicita para ausencia.
+- Ao criar endpoints autenticados ou services/repositories autorizados, consulte `fastapi-best-practices/references/authentication-authorization.md` e propague contexto autenticado entre camadas sem passar token cru.
+- Ao criar agents/tools que atuam por usuario, consulte `standard-agents` e valide permissao server-side no handler da tool/node.
 - Prefira funcoes pequenas, tipadas e testaveis.
 - Ao implementar cache em memoria, defina fonte de verdade, TTL ou invalidacao, max size, implicacao multi-worker e reset para testes.
 - Para qualquer codigo Python novo ou alterado, consulte `.github/skills/standard-docstrings/SKILL.md` e garanta docstrings em pt-BR no formato NumPy para modulos, classes, funcoes e metodos publicos.

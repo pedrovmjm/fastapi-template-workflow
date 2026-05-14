@@ -14,6 +14,8 @@ Esta skill é dona de:
 - organização de routers;
 - `lifespan`;
 - dependency injection;
+- autenticacao/autorizacao como dependencia da aplicacao e propagacao segura de contexto autenticado;
+- estrutura transversal de auth em `src/security/` quando o projeto escolher tratar seguranca como capacidade similar a `observability`;
 - registro de exception handlers;
 - fronteiras assíncronas;
 - revisão de acoplamento entre camadas.
@@ -34,6 +36,7 @@ Esta skill não é dona de:
 | --- | --- |
 | Quando precisar aprofundar composição da aplicação. | [Composição da aplicação](references/application-composition.md) |
 | Quando precisar aprofundar dependency injection. | [Dependency injection](references/dependency-injection.md) |
+| Quando precisar aprofundar autenticacao, autorizacao, Azure AD, posse de recurso e contexto autenticado. | [Autenticacao e autorizacao](references/authentication-authorization.md) |
 | Quando precisar aprofundar tratamento de erros. | [Tratamento de erros](references/error-handling.md) |
 | Quando precisar aprofundar regras assíncronas. | [Regras assíncronas](references/async-guidelines.md) |
 | Quando precisar aprofundar mapa de ownership das skills. | [Mapa de ownership das skills](references/skill-ownership.md) |
@@ -47,6 +50,7 @@ Esta skill não é dona de:
 - Routers devem ser registrados em um ponto previsível da aplicação.
 - `lifespan` deve concentrar abertura e fechamento de recursos globais.
 - Dependências devem ser pequenas, tipadas e testáveis.
+- Endpoints autenticados devem validar identidade por dependencia, propagar contexto autenticado para services/repositories e reforcar posse/permissao no servidor.
 - Handlers de erro devem transformar exceções conhecidas no contrato definido por `standard-errors`.
 - Código bloqueante não deve rodar diretamente dentro de endpoints assíncronos.
 - Configurações devem ser lidas por uma camada própria, não espalhadas em rotas.
@@ -58,6 +62,7 @@ Esta skill não é dona de:
 - [ ] Routers são registrados sem lógica condicional espalhada.
 - [ ] Recursos globais são abertos e fechados no `lifespan`.
 - [ ] Dependências são tipadas e substituíveis em testes.
+- [ ] Endpoints autenticados validam token e propagam contexto seguro entre camadas.
 - [ ] Erros de domínio não vazam como exceções cruas para o cliente.
 - [ ] Contratos públicos de erro seguem `standard-errors`.
 - [ ] Não há I/O bloqueante em fluxo assíncrono.

@@ -104,6 +104,7 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 ├── src/
 │   ├── main.py
 │   ├── configs/
+│   │   ├── azure_ad.py
 │   │   ├── settings.py
 │   │   ├── httpx_client.py
 │   │   ├── mongo.py
@@ -114,6 +115,7 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 │   │   ├── api_version.py
 │   │   └── correlation_id.py
 │   ├── models/
+│   │   ├── auth/
 │   │   ├── health/
 │   │   └── utils/
 │   ├── observability/
@@ -121,27 +123,34 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 │   │   ├── logging/
 │   │   └── telemetry/
 │   ├── repository/
+│   │   ├── microsoft_graph/
 │   │   └── object_storage/
 │   ├── routes/
 │   │   └── health/
+│   ├── security/
 │   └── services/
+│       ├── auth/
+│       └── microsoft_graph/
 └── tests/
 ```
 
 ### Principais Pecas Geradas
 
-- `pyproject.toml`: dependencias base para FastAPI, Uvicorn, Pydantic, HTTPX, OpenTelemetry, MongoDB, SQLAlchemy, SQLite async e extras para object storage.
-- `.env.example`: variaveis organizadas por dominio, como `APP__`, `SERVER__`, `LOGGING__`, `TELEMETRY__`, `MONGO__`, `SQL_DATABASE__` e `OBJECT_STORAGE__`.
+- `pyproject.toml`: dependencias base para FastAPI, Uvicorn, Pydantic, HTTPX, PyJWT, OpenTelemetry, MongoDB, SQLAlchemy, SQLite async e extras para object storage.
+- `.env.example`: variaveis organizadas por dominio, como `APP__`, `SERVER__`, `AUTH__`, `LOGGING__`, `TELEMETRY__`, `MONGO__`, `SQL_DATABASE__` e `OBJECT_STORAGE__`.
 - `start.py`: entrypoint operacional que carrega settings, configura logs e inicia o Uvicorn.
 - `src/main.py`: composicao da aplicacao FastAPI, lifespan, recursos globais, middlewares, rotas e telemetry.
 - `src/configs/`: carregamento de settings, clients e providers compartilhados.
 - `src/configs/values_domains/`: modelos Pydantic separados por dominio de configuracao.
 - `src/middlewares/api_version.py`: resolucao da versao da API por header.
+- `src/models/auth/`: contratos internos para usuario autenticado, grupos e superior direto.
 - `src/models/utils/`: contratos compartilhados para `meta` e `links` em respostas HTTP, com helper assíncrono para montar o contexto dinâmico de respostas `GET`.
 - `src/routes/health/`: endpoint `/health` com envelope `data`, `meta` e `links`.
+- `src/security/`: validacao JWT Azure AD, dependencies FastAPI e helpers de scopes, roles e grupos.
 - `src/observability/`: logging estruturado e setup de tracing OpenTelemetry.
+- `src/repository/microsoft_graph/`: chamadas tecnicas ao Microsoft Graph para perfil, manager, grupos diretos e foto.
 - `src/repository/object_storage/`: interface, factory e implementacoes para Azure Blob e AWS S3.
-- `src/services/`: camada reservada para regras de negocio.
+- `src/services/`: camada reservada para regras de negocio, auth e enriquecimento opcional via Microsoft Graph.
 - `tests/`: ponto inicial para a suite de testes.
 
 ## Depois de Gerar o Projeto
@@ -220,7 +229,7 @@ Os agents em `.github/agents/` orientam a execucao do workflow:
 As skills em `.github/skills/` documentam padroes reutilizaveis. As principais incluem:
 
 - `spc-driven`: workflow SDD e referencias para specify, design, tasks, implementacao e handoff.
-- `fastapi-best-practices`: composicao FastAPI, dependency injection, async e tratamento de erros.
+- `fastapi-best-practices`: composicao FastAPI, dependency injection, auth/autorizacao, async e tratamento de erros.
 - `standard-configs`: settings, values domains e providers.
 - `standard-endpoints`: routers, status codes, query params e documentacao de endpoints.
 - `standard-services`: padroes para camada de service.
@@ -234,6 +243,7 @@ As skills em `.github/skills/` documentam padroes reutilizaveis. As principais i
 - `standard-errors`: contrato de erro, validacoes e mapeamento de excecoes.
 - `standard-security`: OWASP API, autenticacao, autorizacao e protecao de dados.
 - `standard-tests`: estrategia de testes unitarios, integracao, fixtures e e2e.
+- `start-agents`: boas praticas para OpenAI Agents SDK, LangGraph, tools, guardrails, logs, traces e agentes seguros.
 - `standard-docstrings`: docstrings no estilo NumPy.
 - `in-memory-cache`: decisao, implementacao e revisao de cache local.
 - `processing-interfaces`: interfaces para processamento e composicao por DI.

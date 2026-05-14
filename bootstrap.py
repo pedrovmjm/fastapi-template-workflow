@@ -93,6 +93,7 @@ def build_file_templates() -> list[FileTemplate]:
                 "opentelemetry-sdk>=1.25.0",
                 "pydantic>=2.0.0",
                 "pymongo>=4.9.0",
+                "PyJWT[crypto]>=2.9.0",
                 "python-dotenv>=1.0.0",
                 "SQLAlchemy>=2.0.0",
                 "aiosqlite>=0.19.0",
@@ -150,6 +151,24 @@ def build_file_templates() -> list[FileTemplate]:
             HTTPX_CLIENT__CONNECT_TIMEOUT_SECONDS=10
             HTTPX_CLIENT__MAX_CONNECTIONS=100
             HTTPX_CLIENT__MAX_KEEPALIVE_CONNECTIONS=20
+
+            AUTH__ENABLED=false
+            AUTH__TENANT_ID=
+            AUTH__AUDIENCE=
+            AUTH__ISSUER=
+            AUTH__METADATA_URL=
+            AUTH__JWKS_URL=
+            AUTH__ALLOWED_ALGORITHMS=RS256
+            AUTH__GRAPH_ENRICHMENT_ENABLED=false
+            AUTH__GRAPH_CLIENT_ID=
+            AUTH__GRAPH_CLIENT_SECRET=
+            AUTH__GRAPH_SCOPE=https://graph.microsoft.com/.default
+            AUTH__GRAPH_BASE_URL=https://graph.microsoft.com/v1.0
+            AUTH__GRAPH_USER_SELECT=id,displayName,mail,userPrincipalName,department,jobTitle,officeLocation,mobilePhone,businessPhones
+            AUTH__GRAPH_INCLUDE_MANAGER=true
+            AUTH__GRAPH_INCLUDE_GROUPS=true
+            AUTH__GRAPH_INCLUDE_PHOTO=true
+            AUTH__GRAPH_MAX_GROUP_PAGES=5
 
             LOGGING__LEVEL=WARNING
             LOGGING__JSON_ENABLED=true
@@ -456,6 +475,7 @@ def build_file_templates() -> list[FileTemplate]:
             from pydantic import BaseModel, ConfigDict, Field
 
             from src.configs.values_domains.app import AppValues
+            from src.configs.values_domains.auth import AuthValues
             from src.configs.values_domains.httpx_client import HttpxClientValues
             from src.configs.values_domains.logging import LoggingValues
             from src.configs.values_domains.mongo import MongoValues
@@ -474,6 +494,7 @@ def build_file_templates() -> list[FileTemplate]:
                 "server": "\\033[35m",
                 "time": "\\033[32m",
                 "httpx_client": "\\033[34m",
+                "auth": "\\033[91m",
                 "logging": "\\033[33m",
                 "telemetry": "\\033[95m",
                 "mongo": "\\033[92m",
@@ -500,6 +521,8 @@ def build_file_templates() -> list[FileTemplate]:
                     Configuracoes de timezone usadas por respostas e agendamentos.
                 httpx_client : HttpxClientValues
                     Configuracoes globais do client HTTP assicrono.
+                auth : AuthValues
+                    Configuracoes de autenticacao, autorizacao e enriquecimento Graph.
                 logging : LoggingValues
                     Configuracoes de logging estruturado.
                 telemetry : TelemetryValues
@@ -533,6 +556,10 @@ def build_file_templates() -> list[FileTemplate]:
                 httpx_client: HttpxClientValues = Field(
                     default_factory=HttpxClientValues,
                     description="Configuracoes globais do client HTTP assincrono.",
+                )
+                auth: AuthValues = Field(
+                    default_factory=AuthValues,
+                    description="Configuracoes de autenticacao, autorizacao e Graph.",
                 )
                 logging: LoggingValues = Field(
                     default_factory=LoggingValues,
@@ -884,6 +911,52 @@ def build_file_templates() -> list[FileTemplate]:
                 if _streaming_httpx_client is not None:
                     await _streaming_httpx_client.aclose()
                     _streaming_httpx_client = None
+            ''',
+        ),
+        FileTemplate(
+            "src/configs/azure_ad.py",
+            '''
+            """Helpers de configuracao para Azure AD e Microsoft Graph."""
+
+            from src.configs.settings import Settings
+
+
+            def resolve_azure_ad_metadata_url(settings: Settings) -> str:
+                """Resolve a URL OIDC discovery usada para validar tokens Azure AD.
+
+                Parameters
+                ----------
+                settings : Settings
+                    Configuracoes finais da aplicacao.
+
+                Returns
+                -------
+                str
+                    URL OIDC discovery configurada ou derivada do tenant.
+                """
+
+                if settings.auth.metadata_url:
+                    return settings.auth.metadata_url
+
+                return (
+                    "https://login.microsoftonline.com/"
+                    f"{settings.auth.tenant_id}/v2.0/.well-known/openid-configuration"
+                )
+
+
+            def resolve_azure_ad_issuer(settings: Settings) -> str:
+                """Resolve o issuer esperado para tokens Azure AD v2.0."""
+
+                if settings.auth.issuer:
+                    return settings.auth.issuer
+
+                return f"https://login.microsoftonline.com/{settings.auth.tenant_id}/v2.0"
+
+
+            def resolve_graph_token_url(settings: Settings) -> str:
+                """Resolve a URL de token client credentials para Microsoft Graph."""
+
+                return f"https://login.microsoftonline.com/{settings.auth.tenant_id}/oauth2/v2.0/token"
             ''',
         ),
         FileTemplate(
@@ -1455,6 +1528,140 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
+            "src/configs/values_domains/auth.py",
+            '''
+            """Define valores de autenticacao e autorizacao."""
+
+            from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+            class AuthValues(BaseModel):
+                """Define configuracoes de Azure AD e enriquecimento via Microsoft Graph."""
+
+                model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+                enabled: bool = Field(
+                    False,
+                    description="Indica se autenticacao Azure AD esta habilitada.",
+                )
+                tenant_id: str | None = Field(
+                    None,
+                    description="Tenant ID esperado nos tokens Azure AD.",
+                    min_length=1,
+                    max_length=128,
+                )
+                audience: str | None = Field(
+                    None,
+                    description="Audience esperada no token, normalmente client ID ou App ID URI da API.",
+                    min_length=1,
+                    max_length=512,
+                )
+                issuer: str | None = Field(
+                    None,
+                    description="Issuer esperado. Quando ausente, e derivado do tenant v2.0.",
+                    min_length=1,
+                    max_length=1024,
+                )
+                metadata_url: str | None = Field(
+                    None,
+                    description="URL OIDC discovery. Quando ausente, e derivada do tenant v2.0.",
+                    min_length=1,
+                    max_length=2048,
+                )
+                jwks_url: str | None = Field(
+                    None,
+                    description="URL JWKS. Quando ausente, e obtida do OIDC discovery.",
+                    min_length=1,
+                    max_length=2048,
+                )
+                allowed_algorithms: list[str] = Field(
+                    default_factory=lambda: ["RS256"],
+                    description="Algoritmos JWT aceitos para validar assinatura.",
+                    min_length=1,
+                    max_length=10,
+                )
+                graph_enrichment_enabled: bool = Field(
+                    False,
+                    description="Indica se o UserContext deve ser enriquecido via Microsoft Graph.",
+                )
+                graph_client_id: str | None = Field(
+                    None,
+                    description="Client ID da service principal usada para Microsoft Graph.",
+                    min_length=1,
+                    max_length=128,
+                )
+                graph_client_secret: str | None = Field(
+                    None,
+                    description="Client secret da service principal usada para Microsoft Graph.",
+                    min_length=1,
+                    max_length=4096,
+                )
+                graph_scope: str = Field(
+                    "https://graph.microsoft.com/.default",
+                    description="Escopo OAuth client credentials usado para Microsoft Graph.",
+                    min_length=1,
+                    max_length=512,
+                )
+                graph_base_url: str = Field(
+                    "https://graph.microsoft.com/v1.0",
+                    description="Base URL do Microsoft Graph.",
+                    min_length=1,
+                    max_length=2048,
+                )
+                graph_user_select: list[str] = Field(
+                    default_factory=lambda: [
+                        "id",
+                        "displayName",
+                        "mail",
+                        "userPrincipalName",
+                        "department",
+                        "jobTitle",
+                        "officeLocation",
+                        "mobilePhone",
+                        "businessPhones",
+                    ],
+                    description="Campos do usuario buscados no Microsoft Graph.",
+                    min_length=1,
+                    max_length=50,
+                )
+                graph_include_manager: bool = Field(
+                    True,
+                    description="Indica se o enriquecimento deve buscar superior direto.",
+                )
+                graph_include_groups: bool = Field(
+                    True,
+                    description="Indica se o enriquecimento deve buscar grupos diretos do usuario.",
+                )
+                graph_include_photo: bool = Field(
+                    True,
+                    description="Indica se o enriquecimento deve verificar metadata da foto do usuario.",
+                )
+                graph_max_group_pages: int = Field(
+                    5,
+                    description="Quantidade maxima de paginas de grupos diretos lidas no Graph.",
+                    ge=1,
+                    le=50,
+                )
+
+                @model_validator(mode="after")
+                def validate_enabled_auth(self) -> "AuthValues":
+                    """Valida campos obrigatorios quando auth ou Graph estao habilitados."""
+
+                    if self.enabled and (not self.tenant_id or not self.audience):
+                        raise ValueError("AUTH__TENANT_ID e AUTH__AUDIENCE sao obrigatorios.")
+
+                    if self.graph_enrichment_enabled:
+                        missing_graph_credentials = not self.graph_client_id or not self.graph_client_secret
+                        if not self.tenant_id or missing_graph_credentials:
+                            raise ValueError(
+                                "AUTH__TENANT_ID, AUTH__GRAPH_CLIENT_ID e "
+                                "AUTH__GRAPH_CLIENT_SECRET sao obrigatorios para Graph.",
+                            )
+
+                    return self
+            ''',
+        ),
+        FileTemplate(
             "src/configs/values_domains/logging.py",
             '''
             """Define valores de logging da aplicacao."""
@@ -2005,6 +2212,182 @@ def build_file_templates() -> list[FileTemplate]:
         FileTemplate(
             "src/models/__init__.py",
             '"""Modelos publicos e internos da aplicacao."""\n',
+        ),
+        FileTemplate(
+            "src/models/auth/__init__.py",
+            '"""Modelos internos de autenticacao e autorizacao."""\n',
+        ),
+        FileTemplate(
+            "src/models/auth/user.py",
+            '''
+            """Define contratos internos do usuario autenticado."""
+
+            from pydantic import BaseModel, ConfigDict, Field
+
+
+            class UserGroup(BaseModel):
+                """Representa um grupo do Microsoft Entra usado para autorizacao."""
+
+                model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+                id: str = Field(
+                    ...,
+                    description="Identificador do grupo no Microsoft Entra ID.",
+                    min_length=1,
+                    max_length=128,
+                )
+                display_name: str = Field(
+                    ...,
+                    description="Nome de exibicao do grupo no Microsoft Entra ID.",
+                    min_length=1,
+                    max_length=256,
+                )
+
+
+            class UserManager(BaseModel):
+                """Representa superior direto do usuario no Microsoft Graph."""
+
+                model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+                id: str = Field(
+                    ...,
+                    description="Identificador do superior direto no Microsoft Graph.",
+                    min_length=1,
+                    max_length=128,
+                )
+                display_name: str | None = Field(
+                    None,
+                    description="Nome de exibicao do superior direto.",
+                    min_length=1,
+                    max_length=256,
+                )
+                mail: str | None = Field(
+                    None,
+                    description="Email corporativo do superior direto.",
+                    min_length=3,
+                    max_length=320,
+                )
+
+
+            class UserContext(BaseModel):
+                """Representa o usuario autenticado propagado entre camadas."""
+
+                model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+                user_id: str = Field(
+                    ...,
+                    description="Identificador interno derivado de tenant e oid.",
+                    min_length=3,
+                    max_length=260,
+                )
+                oid: str = Field(
+                    ...,
+                    description="Object ID do usuario no Microsoft Entra ID.",
+                    min_length=1,
+                    max_length=128,
+                )
+                tenant_id: str = Field(
+                    ...,
+                    description="Tenant ID que emitiu o token.",
+                    min_length=1,
+                    max_length=128,
+                )
+                scopes: frozenset[str] = Field(
+                    default_factory=frozenset,
+                    description="Scopes recebidos na claim `scp`.",
+                )
+                roles: frozenset[str] = Field(
+                    default_factory=frozenset,
+                    description="Roles recebidas na claim `roles`.",
+                )
+                group_ids: frozenset[str] = Field(
+                    default_factory=frozenset,
+                    description="IDs de grupos conhecidos do usuario.",
+                )
+                group_names: frozenset[str] = Field(
+                    default_factory=frozenset,
+                    description="Display names de grupos conhecidos do usuario.",
+                )
+                groups_overage: bool = Field(
+                    False,
+                    description="Indica se o token sinalizou overage de grupos.",
+                )
+                display_name: str | None = Field(
+                    None,
+                    description="Nome de exibicao enriquecido.",
+                    min_length=1,
+                    max_length=256,
+                )
+                mail: str | None = Field(
+                    None,
+                    description="Email corporativo enriquecido.",
+                    min_length=3,
+                    max_length=320,
+                )
+                user_principal_name: str | None = Field(
+                    None,
+                    description="User principal name retornado pelo Microsoft Graph.",
+                    min_length=1,
+                    max_length=320,
+                )
+                department: str | None = Field(
+                    None,
+                    description="Departamento do usuario.",
+                    min_length=1,
+                    max_length=256,
+                )
+                job_title: str | None = Field(
+                    None,
+                    description="Cargo do usuario.",
+                    min_length=1,
+                    max_length=256,
+                )
+                office_location: str | None = Field(
+                    None,
+                    description="Localizacao ou escritorio do usuario.",
+                    min_length=1,
+                    max_length=256,
+                )
+                mobile_phone: str | None = Field(
+                    None,
+                    description="Telefone movel corporativo do usuario.",
+                    min_length=1,
+                    max_length=64,
+                )
+                business_phones: tuple[str, ...] = Field(
+                    default_factory=tuple,
+                    description="Telefones corporativos retornados pelo Microsoft Graph.",
+                    max_length=20,
+                )
+                manager: UserManager | None = Field(
+                    None,
+                    description="Superior direto enriquecido via Microsoft Graph.",
+                )
+                photo_available: bool = Field(
+                    False,
+                    description="Indica se o Microsoft Graph possui foto para o usuario.",
+                )
+                enrichment_enabled: bool = Field(
+                    False,
+                    description="Indica se enriquecimento estava habilitado.",
+                )
+                enrichment_succeeded: bool = Field(
+                    False,
+                    description="Indica se enriquecimento executou com sucesso.",
+                )
+                enrichment_error_type: str | None = Field(
+                    None,
+                    description="Tipo seguro da falha de enriquecimento.",
+                    min_length=1,
+                    max_length=128,
+                )
+                correlation_id: str | None = Field(
+                    None,
+                    description="Correlation id da requisicao.",
+                    min_length=1,
+                    max_length=128,
+                )
+            ''',
         ),
         FileTemplate(
             "src/models/health/__init__.py",
@@ -3031,6 +3414,273 @@ def build_file_templates() -> list[FileTemplate]:
         FileTemplate(
             "src/repository/__init__.py",
             '"""Repositories da aplicacao."""\n',
+        ),
+        FileTemplate(
+            "src/repository/microsoft_graph/__init__.py",
+            '"""Repositories para Microsoft Graph."""\n',
+        ),
+        FileTemplate(
+            "src/repository/microsoft_graph/entities.py",
+            '''
+            """Entidades internas retornadas pelo Microsoft Graph repository."""
+
+            from pydantic import BaseModel, ConfigDict, Field
+
+
+            class MicrosoftGraphGroupEntity(BaseModel):
+                """Representa grupo direto do usuario no Microsoft Graph."""
+
+                model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+                id: str = Field(
+                    ...,
+                    description="Identificador do grupo no Microsoft Graph.",
+                    min_length=1,
+                    max_length=128,
+                )
+                display_name: str = Field(
+                    ...,
+                    description="Nome de exibicao do grupo.",
+                    min_length=1,
+                    max_length=256,
+                )
+
+
+            class MicrosoftGraphManagerEntity(BaseModel):
+                """Representa superior direto retornado pelo Microsoft Graph."""
+
+                model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+                id: str = Field(
+                    ...,
+                    description="Identificador do superior direto no Microsoft Graph.",
+                    min_length=1,
+                    max_length=128,
+                )
+                display_name: str | None = Field(
+                    None,
+                    description="Nome de exibicao do superior direto.",
+                    min_length=1,
+                    max_length=256,
+                )
+                mail: str | None = Field(
+                    None,
+                    description="Email corporativo do superior direto.",
+                    min_length=3,
+                    max_length=320,
+                )
+
+
+            class MicrosoftGraphUserProfileEntity(BaseModel):
+                """Representa propriedades de usuario retornadas pelo Microsoft Graph."""
+
+                model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+                id: str = Field(..., description="Identificador do usuario no Microsoft Graph.")
+                display_name: str | None = Field(None, description="Nome de exibicao do usuario.")
+                mail: str | None = Field(None, description="Email corporativo do usuario.")
+                user_principal_name: str | None = Field(None, description="User principal name.")
+                department: str | None = Field(None, description="Departamento do usuario.")
+                job_title: str | None = Field(None, description="Cargo do usuario.")
+                office_location: str | None = Field(None, description="Escritorio do usuario.")
+                mobile_phone: str | None = Field(None, description="Telefone movel do usuario.")
+                business_phones: tuple[str, ...] = Field(
+                    default_factory=tuple,
+                    description="Telefones corporativos do usuario.",
+                )
+            ''',
+        ),
+        FileTemplate(
+            "src/repository/microsoft_graph/client.py",
+            '''
+            """Repository tecnico para chamadas ao Microsoft Graph."""
+
+            from __future__ import annotations
+
+            import logging
+            import time
+            from typing import Any
+
+            import httpx
+            from opentelemetry import trace
+            from opentelemetry.trace import Status, StatusCode
+
+            from src.configs.azure_ad import resolve_graph_token_url
+            from src.configs.settings import Settings
+            from src.observability.correlation import get_current_correlation_id
+            from src.repository.microsoft_graph.entities import (
+                MicrosoftGraphGroupEntity,
+                MicrosoftGraphManagerEntity,
+                MicrosoftGraphUserProfileEntity,
+            )
+
+
+            logger = logging.getLogger("app.repository.microsoft_graph")
+            tracer = trace.get_tracer("app.repository.microsoft_graph")
+            _graph_access_token: str | None = None
+            _graph_access_token_expires_at: float = 0.0
+
+
+            class MicrosoftGraphRepository:
+                """Executa chamadas tecnicas ao Microsoft Graph.
+
+                Parameters
+                ----------
+                client : httpx.AsyncClient
+                    Client HTTP assincrono configurado pela aplicacao.
+                settings : Settings
+                    Configuracoes finais da aplicacao.
+                """
+
+                def __init__(self, client: httpx.AsyncClient, settings: Settings) -> None:
+                    self._client = client
+                    self._settings = settings
+
+                async def _get_access_token(self) -> str:
+                    """Obtem access token app-only para Microsoft Graph."""
+
+                    global _graph_access_token, _graph_access_token_expires_at
+
+                    now = time.monotonic()
+                    if _graph_access_token and now < _graph_access_token_expires_at:
+                        return _graph_access_token
+
+                    response = await self._client.post(
+                        resolve_graph_token_url(settings=self._settings),
+                        data={
+                            "client_id": self._settings.auth.graph_client_id,
+                            "client_secret": self._settings.auth.graph_client_secret,
+                            "grant_type": "client_credentials",
+                            "scope": self._settings.auth.graph_scope,
+                        },
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    access_token = payload["access_token"]
+                    expires_in = int(payload.get("expires_in", 300))
+                    _graph_access_token = access_token
+                    _graph_access_token_expires_at = now + max(60, expires_in - 60)
+                    return access_token
+
+                async def _authorization_headers(self) -> dict[str, str]:
+                    """Monta headers seguros para chamadas ao Microsoft Graph."""
+
+                    access_token = await self._get_access_token()
+                    return {"Authorization": f"Bearer {access_token}"}
+
+                async def get_user_profile(self, user_oid: str) -> MicrosoftGraphUserProfileEntity:
+                    """Busca propriedades de perfil do usuario no Microsoft Graph."""
+
+                    correlation_id = get_current_correlation_id()
+                    with tracer.start_as_current_span("microsoft_graph.repository.get_user_profile") as span:
+                        span.set_attribute("app.layer", "repository")
+                        span.set_attribute("app.provider", "microsoft_graph")
+                        span.set_attribute("app.operation", "get_user_profile")
+                        span.set_attribute("app.user_oid", user_oid)
+                        if correlation_id is not None:
+                            span.set_attribute("app.correlation_id", correlation_id)
+
+                        try:
+                            response = await self._client.get(
+                                f"{self._settings.auth.graph_base_url}/users/{user_oid}",
+                                headers=await self._authorization_headers(),
+                                params={"$$select": ",".join(self._settings.auth.graph_user_select)},
+                            )
+                            response.raise_for_status()
+                            payload = response.json()
+                            return MicrosoftGraphUserProfileEntity(
+                                id=payload["id"],
+                                display_name=payload.get("displayName"),
+                                mail=payload.get("mail"),
+                                user_principal_name=payload.get("userPrincipalName"),
+                                department=payload.get("department"),
+                                job_title=payload.get("jobTitle"),
+                                office_location=payload.get("officeLocation"),
+                                mobile_phone=payload.get("mobilePhone"),
+                                business_phones=tuple(payload.get("businessPhones") or ()),
+                            )
+                        except Exception as error:
+                            span.record_exception(error)
+                            span.set_status(Status(StatusCode.ERROR, type(error).__name__))
+                            logger.warning(
+                                "Falha ao buscar perfil no Microsoft Graph.",
+                                extra={
+                                    "event": "microsoft_graph.user_profile_failed",
+                                    "layer": "repository",
+                                    "provider": "microsoft_graph",
+                                    "operation": "get_user_profile",
+                                    "error_type": type(error).__name__,
+                                    "correlation_id": correlation_id,
+                                },
+                            )
+                            raise
+
+                async def get_user_manager(self, user_oid: str) -> MicrosoftGraphManagerEntity | None:
+                    """Busca superior direto do usuario no Microsoft Graph."""
+
+                    response = await self._client.get(
+                        f"{self._settings.auth.graph_base_url}/users/{user_oid}/manager",
+                        headers=await self._authorization_headers(),
+                        params={"$$select": "id,displayName,mail,userPrincipalName"},
+                    )
+                    if response.status_code == httpx.codes.NOT_FOUND:
+                        return None
+
+                    response.raise_for_status()
+                    payload: dict[str, Any] = response.json()
+                    return MicrosoftGraphManagerEntity(
+                        id=payload["id"],
+                        display_name=payload.get("displayName"),
+                        mail=payload.get("mail") or payload.get("userPrincipalName"),
+                    )
+
+                async def list_user_groups(self, user_oid: str) -> tuple[MicrosoftGraphGroupEntity, ...]:
+                    """Lista grupos diretos do usuario por ID e display name."""
+
+                    groups: list[MicrosoftGraphGroupEntity] = []
+                    next_url: str | None = (
+                        f"{self._settings.auth.graph_base_url}/users/{user_oid}/memberOf/"
+                        "microsoft.graph.group"
+                    )
+                    params: dict[str, str] | None = {"$$select": "id,displayName"}
+                    pages = 0
+                    while next_url and pages < self._settings.auth.graph_max_group_pages:
+                        response = await self._client.get(
+                            next_url,
+                            headers=await self._authorization_headers(),
+                            params=params,
+                        )
+                        response.raise_for_status()
+                        payload = response.json()
+                        for item in payload.get("value", []):
+                            group_id = item.get("id")
+                            display_name = item.get("displayName")
+                            if isinstance(group_id, str) and isinstance(display_name, str):
+                                groups.append(
+                                    MicrosoftGraphGroupEntity(
+                                        id=group_id,
+                                        display_name=display_name,
+                                    )
+                                )
+                        next_url = payload.get("@odata.nextLink")
+                        params = None
+                        pages += 1
+
+                    return tuple(groups)
+
+                async def has_user_photo(self, user_oid: str) -> bool:
+                    """Verifica se o usuario possui foto cadastrada no Microsoft Graph."""
+
+                    response = await self._client.get(
+                        f"{self._settings.auth.graph_base_url}/users/{user_oid}/photo",
+                        headers=await self._authorization_headers(),
+                    )
+                    if response.status_code == httpx.codes.NOT_FOUND:
+                        return False
+
+                    response.raise_for_status()
+                    return True
+            ''',
         ),
         FileTemplate(
             "src/repository/object_storage/__init__.py",
@@ -4253,6 +4903,415 @@ def build_file_templates() -> list[FileTemplate]:
             '"""Rotas HTTP da aplicacao."""\n',
         ),
         FileTemplate(
+            "src/security/__init__.py",
+            '"""Autenticacao, autorizacao e dependencies de seguranca."""\n',
+        ),
+        FileTemplate(
+            "src/security/azure_ad.py",
+            '''
+            """Valida access tokens emitidos pelo Azure AD/Microsoft Entra ID."""
+
+            from __future__ import annotations
+
+            import json
+            import logging
+            import time
+            from typing import Any
+
+            import httpx
+            import jwt
+            from jwt import InvalidTokenError
+
+            from src.configs.azure_ad import (
+                resolve_azure_ad_issuer,
+                resolve_azure_ad_metadata_url,
+            )
+            from src.configs.settings import Settings
+            from src.services.auth.exceptions import AuthenticationFailedError
+
+
+            logger = logging.getLogger("app.security.azure_ad")
+            _openid_config: dict[str, Any] | None = None
+            _openid_config_expires_at: float = 0.0
+            _jwks: dict[str, Any] | None = None
+            _jwks_expires_at: float = 0.0
+            _CACHE_TTL_SECONDS = 3600
+
+
+            async def _get_openid_config(
+                *,
+                client: httpx.AsyncClient,
+                settings: Settings,
+            ) -> dict[str, Any]:
+                """Busca e cacheia metadados OIDC do tenant Azure AD."""
+
+                global _openid_config, _openid_config_expires_at
+
+                now = time.monotonic()
+                if _openid_config is not None and now < _openid_config_expires_at:
+                    return _openid_config
+
+                response = await client.get(resolve_azure_ad_metadata_url(settings=settings))
+                response.raise_for_status()
+                _openid_config = response.json()
+                _openid_config_expires_at = now + _CACHE_TTL_SECONDS
+                return _openid_config
+
+
+            async def _get_jwks(*, client: httpx.AsyncClient, settings: Settings) -> dict[str, Any]:
+                """Busca e cacheia JWKS usado para validar assinatura dos tokens."""
+
+                global _jwks, _jwks_expires_at
+
+                now = time.monotonic()
+                if _jwks is not None and now < _jwks_expires_at:
+                    return _jwks
+
+                if settings.auth.jwks_url:
+                    jwks_url = settings.auth.jwks_url
+                else:
+                    openid_config = await _get_openid_config(client=client, settings=settings)
+                    jwks_url = openid_config.get("jwks_uri")
+
+                if not isinstance(jwks_url, str):
+                    raise AuthenticationFailedError("JWKS URI ausente nos metadados Azure AD.")
+
+                response = await client.get(jwks_url)
+                response.raise_for_status()
+                _jwks = response.json()
+                _jwks_expires_at = now + _CACHE_TTL_SECONDS
+                return _jwks
+
+
+            def _select_jwk(token: str, jwks: dict[str, Any]) -> dict[str, Any]:
+                """Seleciona a chave publica compatível com o `kid` do token."""
+
+                try:
+                    header = jwt.get_unverified_header(token)
+                except InvalidTokenError as exc:
+                    raise AuthenticationFailedError("Header JWT invalido.") from exc
+
+                kid = header.get("kid")
+                algorithm = header.get("alg")
+                if algorithm not in jwks.get("allowed_algorithms", []):
+                    # A checagem definitiva de algoritmo ocorre no jwt.decode.
+                    pass
+
+                for key in jwks.get("keys", []):
+                    if key.get("kid") == kid:
+                        return key
+
+                raise AuthenticationFailedError("Chave publica do token nao encontrada.")
+
+
+            async def decode_and_validate_access_token(
+                *,
+                token: str,
+                client: httpx.AsyncClient,
+                settings: Settings,
+            ) -> dict[str, Any]:
+                """Valida access token Azure AD e retorna claims confiaveis.
+
+                Parameters
+                ----------
+                token : str
+                    Bearer token recebido pela API.
+                client : httpx.AsyncClient
+                    Client HTTP usado para buscar metadata/JWKS.
+                settings : Settings
+                    Configuracoes finais da aplicacao.
+
+                Returns
+                -------
+                dict[str, Any]
+                    Claims validadas do token.
+
+                Raises
+                ------
+                AuthenticationFailedError
+                    Quando assinatura, issuer, audience, expiracao ou claims forem invalidas.
+                """
+
+                if not settings.auth.enabled:
+                    raise AuthenticationFailedError("Autenticacao Azure AD esta desabilitada.")
+
+                jwks = await _get_jwks(client=client, settings=settings)
+                jwk = _select_jwk(
+                    token=token,
+                    jwks={**jwks, "allowed_algorithms": settings.auth.allowed_algorithms},
+                )
+                public_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(jwk))
+
+                try:
+                    claims = jwt.decode(
+                        token,
+                        key=public_key,
+                        algorithms=settings.auth.allowed_algorithms,
+                        audience=settings.auth.audience,
+                        issuer=resolve_azure_ad_issuer(settings=settings),
+                        options={"require": ["exp", "nbf", "iss", "aud"]},
+                    )
+                except InvalidTokenError as exc:
+                    logger.warning(
+                        "Token Azure AD rejeitado.",
+                        extra={
+                            "event": "auth.token_rejected",
+                            "layer": "security",
+                            "error_type": type(exc).__name__,
+                        },
+                    )
+                    raise AuthenticationFailedError("Token invalido.") from exc
+
+                return claims
+            ''',
+        ),
+        FileTemplate(
+            "src/security/permissions.py",
+            '''
+            """Helpers puros para autorizacao por scopes, roles e grupos."""
+
+            from collections.abc import Iterable
+
+            from src.models.auth.user import UserContext
+            from src.services.auth.exceptions import AuthorizationDeniedError
+
+
+            def _as_required_set(values: Iterable[str] | None) -> frozenset[str]:
+                """Normaliza colecoes opcionais de requisitos."""
+
+                return frozenset(value for value in values or () if value)
+
+
+            def _user_group_values(user: UserContext) -> frozenset[str]:
+                """Retorna grupos comparaveis por ID ou display name."""
+
+                return user.group_ids | user.group_names
+
+
+            def _ensure_any(*, available: frozenset[str], required: frozenset[str], reason: str) -> None:
+                """Exige ao menos um valor requerido quando a colecao foi informada."""
+
+                if required and available.isdisjoint(required):
+                    raise AuthorizationDeniedError(reason)
+
+
+            def _ensure_all(*, available: frozenset[str], required: frozenset[str], reason: str) -> None:
+                """Exige todos os valores requeridos quando a colecao foi informada."""
+
+                if required and not required.issubset(available):
+                    raise AuthorizationDeniedError(reason)
+
+
+            def ensure_user_permissions(
+                user: UserContext,
+                *,
+                any_scopes: Iterable[str] | None = None,
+                all_scopes: Iterable[str] | None = None,
+                any_roles: Iterable[str] | None = None,
+                all_roles: Iterable[str] | None = None,
+                required_roles: Iterable[str] | None = None,
+                any_groups: Iterable[str] | None = None,
+                all_groups: Iterable[str] | None = None,
+                required_groups: Iterable[str] | None = None,
+            ) -> None:
+                """Valida autorizacao do usuario por OR/AND em scopes, roles e grupos."""
+
+                groups = _user_group_values(user=user)
+                _ensure_any(
+                    available=user.scopes,
+                    required=_as_required_set(any_scopes),
+                    reason="Usuario sem nenhum dos scopes exigidos.",
+                )
+                _ensure_all(
+                    available=user.scopes,
+                    required=_as_required_set(all_scopes),
+                    reason="Usuario sem todos os scopes exigidos.",
+                )
+                _ensure_any(
+                    available=user.roles,
+                    required=_as_required_set(any_roles),
+                    reason="Usuario sem nenhuma das roles exigidas.",
+                )
+                _ensure_all(
+                    available=user.roles,
+                    required=_as_required_set(all_roles) | _as_required_set(required_roles),
+                    reason="Usuario sem todas as roles exigidas.",
+                )
+                _ensure_any(
+                    available=groups,
+                    required=_as_required_set(any_groups),
+                    reason="Usuario sem nenhum dos grupos exigidos.",
+                )
+                _ensure_all(
+                    available=groups,
+                    required=_as_required_set(all_groups) | _as_required_set(required_groups),
+                    reason="Usuario sem todos os grupos exigidos.",
+                )
+            ''',
+        ),
+        FileTemplate(
+            "src/security/dependencies.py",
+            '''
+            """Dependencies FastAPI para autenticacao e autorizacao."""
+
+            from collections.abc import Callable, Iterable
+            from typing import Annotated
+
+            from fastapi import Depends, HTTPException, Request, status
+            from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+            from src.configs.httpx_client import get_httpx_client
+            from src.configs.settings import Settings, get_settings
+            from src.models.auth.user import UserContext
+            from src.repository.microsoft_graph.client import MicrosoftGraphRepository
+            from src.security.azure_ad import decode_and_validate_access_token
+            from src.security.permissions import ensure_user_permissions
+            from src.services.auth.exceptions import (
+                AuthenticationFailedError,
+                AuthorizationDeniedError,
+            )
+            from src.services.auth.user_context_service import UserContextService
+            from src.services.microsoft_graph.user_enrichment_service import (
+                MicrosoftGraphUserEnrichmentService,
+            )
+
+
+            bearer_scheme = HTTPBearer(auto_error=False)
+
+
+            async def get_current_user(
+                request: Request,
+                credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+                settings: Annotated[Settings, Depends(get_settings)],
+            ) -> UserContext:
+                """Autentica o bearer token e retorna o usuario atual.
+
+                Parameters
+                ----------
+                request : Request
+                    Requisicao HTTP usada para obter correlation id.
+                credentials : HTTPAuthorizationCredentials | None
+                    Credenciais Bearer extraidas do header Authorization.
+                settings : Settings
+                    Configuracoes finais da aplicacao.
+                Returns
+                -------
+                UserContext
+                    Usuario autenticado, possivelmente enriquecido via Graph.
+                """
+
+                if credentials is None or credentials.scheme.lower() != "bearer":
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Token ausente.",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+
+                try:
+                    http_client = await get_httpx_client(settings=settings)
+                    claims = await decode_and_validate_access_token(
+                        token=credentials.credentials,
+                        client=http_client,
+                        settings=settings,
+                    )
+                    correlation_id = getattr(request.state, "correlation_id", None)
+                    user = UserContextService().build_from_claims(
+                        claims=claims,
+                        settings=settings,
+                        correlation_id=correlation_id,
+                    )
+                    graph_repository = MicrosoftGraphRepository(
+                        client=http_client,
+                        settings=settings,
+                    )
+                    return await MicrosoftGraphUserEnrichmentService(
+                        repository=graph_repository,
+                        settings=settings,
+                    ).enrich(user=user)
+                except AuthenticationFailedError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Token invalido.",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    ) from exc
+
+
+            def require_user(
+                *,
+                any_scopes: Iterable[str] | None = None,
+                all_scopes: Iterable[str] | None = None,
+                any_roles: Iterable[str] | None = None,
+                all_roles: Iterable[str] | None = None,
+                required_roles: Iterable[str] | None = None,
+                any_groups: Iterable[str] | None = None,
+                all_groups: Iterable[str] | None = None,
+                required_groups: Iterable[str] | None = None,
+            ) -> Callable[..., object]:
+                """Cria dependency que autentica usuario e valida permissao declarativa."""
+
+                async def dependency(
+                    user: Annotated[UserContext, Depends(get_current_user)],
+                ) -> UserContext:
+                    try:
+                        ensure_user_permissions(
+                            user,
+                            any_scopes=any_scopes,
+                            all_scopes=all_scopes,
+                            any_roles=any_roles,
+                            all_roles=all_roles,
+                            required_roles=required_roles,
+                            any_groups=any_groups,
+                            all_groups=all_groups,
+                            required_groups=required_groups,
+                        )
+                    except AuthorizationDeniedError as exc:
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Permissao insuficiente.",
+                        ) from exc
+
+                    return user
+
+                return dependency
+
+
+            def require_any_scope(*scopes: str) -> Callable[..., object]:
+                """Exige ao menos um dos scopes informados."""
+
+                return require_user(any_scopes=scopes)
+
+
+            def require_all_scopes(*scopes: str) -> Callable[..., object]:
+                """Exige todos os scopes informados."""
+
+                return require_user(all_scopes=scopes)
+
+
+            def require_any_role(*roles: str) -> Callable[..., object]:
+                """Exige ao menos uma das roles informadas."""
+
+                return require_user(any_roles=roles)
+
+
+            def require_all_roles(*roles: str) -> Callable[..., object]:
+                """Exige todas as roles informadas."""
+
+                return require_user(all_roles=roles)
+
+
+            def require_any_group(*groups: str) -> Callable[..., object]:
+                """Exige ao menos um dos grupos informados por ID ou display name."""
+
+                return require_user(any_groups=groups)
+
+
+            def require_all_groups(*groups: str) -> Callable[..., object]:
+                """Exige todos os grupos informados por ID ou display name."""
+
+                return require_user(all_groups=groups)
+            ''',
+        ),
+        FileTemplate(
             "src/routes/health/__init__.py",
             '"""Router de health check."""\n',
         ),
@@ -4355,6 +5414,248 @@ def build_file_templates() -> list[FileTemplate]:
         FileTemplate(
             "src/services/__init__.py",
             '"""Services de dominio da aplicacao."""\n',
+        ),
+        FileTemplate(
+            "src/services/auth/__init__.py",
+            '"""Services de autenticacao e autorizacao."""\n',
+        ),
+        FileTemplate(
+            "src/services/auth/exceptions.py",
+            '''
+            """Excecoes internas de autenticacao e autorizacao."""
+
+
+            class AuthenticationFailedError(Exception):
+                """Indica falha de autenticacao do usuario."""
+
+
+            class AuthorizationDeniedError(Exception):
+                """Indica que o usuario autenticado nao possui permissao suficiente."""
+            ''',
+        ),
+        FileTemplate(
+            "src/services/auth/user_context_service.py",
+            '''
+            """Monta UserContext a partir de claims validadas."""
+
+            from typing import Any
+
+            from src.configs.settings import Settings
+            from src.models.auth.user import UserContext
+            from src.services.auth.exceptions import AuthenticationFailedError
+
+
+            def _split_scopes(value: object) -> frozenset[str]:
+                """Converte claim `scp` em conjunto de scopes."""
+
+                if not isinstance(value, str):
+                    return frozenset()
+
+                return frozenset(item for item in value.split(" ") if item)
+
+
+            def _as_string_set(value: object) -> frozenset[str]:
+                """Converte lista de claims em conjunto de strings."""
+
+                if not isinstance(value, list):
+                    return frozenset()
+
+                return frozenset(item for item in value if isinstance(item, str))
+
+
+            def _has_group_overage(claims: dict[str, Any]) -> bool:
+                """Detecta sinalizacao de overage de grupos no token Azure AD."""
+
+                claim_names = claims.get("_claim_names")
+                return claims.get("hasgroups") is True or (
+                    isinstance(claim_names, dict) and "groups" in claim_names
+                )
+
+
+            class UserContextService:
+                """Monta o usuario autenticado a partir de claims confiaveis."""
+
+                def build_from_claims(
+                    self,
+                    *,
+                    claims: dict[str, Any],
+                    settings: Settings,
+                    correlation_id: str | None,
+                ) -> UserContext:
+                    """Cria UserContext base a partir das claims do token.
+
+                    Parameters
+                    ----------
+                    claims : dict[str, Any]
+                        Claims ja validadas quanto a assinatura, issuer, audience e expiracao.
+                    settings : Settings
+                        Configuracoes finais da aplicacao.
+                    correlation_id : str | None
+                        Correlation id da requisicao atual.
+
+                    Returns
+                    -------
+                    UserContext
+                        Contexto autenticado usado entre camadas.
+
+                    Raises
+                    ------
+                    AuthenticationFailedError
+                        Quando as claims obrigatorias de identidade estiverem ausentes.
+                    """
+
+                    oid = claims.get("oid")
+                    tenant_id = claims.get("tid")
+                    if not isinstance(oid, str) or not isinstance(tenant_id, str):
+                        raise AuthenticationFailedError("Token sem claims obrigatorias `oid` e `tid`.")
+
+                    if settings.auth.tenant_id and tenant_id != settings.auth.tenant_id:
+                        raise AuthenticationFailedError("Token emitido por tenant inesperado.")
+
+                    token_groups = _as_string_set(claims.get("groups"))
+                    return UserContext(
+                        user_id=f"{tenant_id}:{oid}",
+                        oid=oid,
+                        tenant_id=tenant_id,
+                        scopes=_split_scopes(claims.get("scp")),
+                        roles=_as_string_set(claims.get("roles")),
+                        group_ids=token_groups,
+                        group_names=frozenset(),
+                        groups_overage=_has_group_overage(claims=claims),
+                        display_name=claims.get("name") if isinstance(claims.get("name"), str) else None,
+                        mail=(
+                            claims.get("preferred_username")
+                            if isinstance(claims.get("preferred_username"), str)
+                            else None
+                        ),
+                        enrichment_enabled=settings.auth.graph_enrichment_enabled,
+                        correlation_id=correlation_id,
+                    )
+            ''',
+        ),
+        FileTemplate(
+            "src/services/microsoft_graph/__init__.py",
+            '"""Services para orquestracao de dados do Microsoft Graph."""\n',
+        ),
+        FileTemplate(
+            "src/services/microsoft_graph/user_enrichment_service.py",
+            '''
+            """Enriquece UserContext com propriedades opcionais do Microsoft Graph."""
+
+            import logging
+
+            from opentelemetry import trace
+            from opentelemetry.trace import Status, StatusCode
+
+            from src.configs.settings import Settings
+            from src.models.auth.user import UserContext, UserManager
+            from src.repository.microsoft_graph.client import MicrosoftGraphRepository
+
+
+            logger = logging.getLogger("app.services.microsoft_graph.user_enrichment")
+            tracer = trace.get_tracer("app.services.microsoft_graph.user_enrichment")
+
+
+            class MicrosoftGraphUserEnrichmentService:
+                """Orquestra enriquecimento opcional do usuario autenticado."""
+
+                def __init__(self, repository: MicrosoftGraphRepository, settings: Settings) -> None:
+                    self._repository = repository
+                    self._settings = settings
+
+                async def enrich(self, user: UserContext) -> UserContext:
+                    """Enriquece o contexto do usuario sem bloquear o fluxo em caso de falha.
+
+                    Parameters
+                    ----------
+                    user : UserContext
+                        Contexto autenticado base montado a partir do token.
+
+                    Returns
+                    -------
+                    UserContext
+                        Contexto original ou enriquecido com dados do Microsoft Graph.
+                    """
+
+                    if not self._settings.auth.graph_enrichment_enabled:
+                        return user
+
+                    with tracer.start_as_current_span("microsoft_graph.service.enrich_user") as span:
+                        span.set_attribute("app.layer", "service")
+                        span.set_attribute("app.operation", "enrich_user")
+                        span.set_attribute("app.tenant_id", user.tenant_id)
+                        span.set_attribute("app.user_oid", user.oid)
+                        if user.correlation_id is not None:
+                            span.set_attribute("app.correlation_id", user.correlation_id)
+
+                        try:
+                            profile = await self._repository.get_user_profile(user_oid=user.oid)
+                            manager = None
+                            if self._settings.auth.graph_include_manager:
+                                manager_entity = await self._repository.get_user_manager(user_oid=user.oid)
+                                if manager_entity is not None:
+                                    manager = UserManager(
+                                        id=manager_entity.id,
+                                        display_name=manager_entity.display_name,
+                                        mail=manager_entity.mail,
+                                    )
+
+                            group_ids = set(user.group_ids)
+                            group_names = set(user.group_names)
+                            if self._settings.auth.graph_include_groups:
+                                for group in await self._repository.list_user_groups(user_oid=user.oid):
+                                    group_ids.add(group.id)
+                                    group_names.add(group.display_name)
+
+                            photo_available = user.photo_available
+                            if self._settings.auth.graph_include_photo:
+                                photo_available = await self._repository.has_user_photo(user_oid=user.oid)
+
+                            span.set_attribute("app.result", "enriched")
+                            return user.model_copy(
+                                update={
+                                    "display_name": profile.display_name or user.display_name,
+                                    "mail": profile.mail or user.mail,
+                                    "user_principal_name": profile.user_principal_name,
+                                    "department": profile.department,
+                                    "job_title": profile.job_title,
+                                    "office_location": profile.office_location,
+                                    "mobile_phone": profile.mobile_phone,
+                                    "business_phones": profile.business_phones,
+                                    "manager": manager,
+                                    "photo_available": photo_available,
+                                    "group_ids": frozenset(group_ids),
+                                    "group_names": frozenset(group_names),
+                                    "enrichment_enabled": True,
+                                    "enrichment_succeeded": True,
+                                    "enrichment_error_type": None,
+                                }
+                            )
+                        except Exception as error:
+                            span.record_exception(error)
+                            span.set_status(Status(StatusCode.ERROR, type(error).__name__))
+                            span.set_attribute("app.result", "fallback")
+                            logger.warning(
+                                "Enriquecimento do usuario via Microsoft Graph falhou.",
+                                extra={
+                                    "event": "auth.user_enrichment_failed",
+                                    "layer": "service",
+                                    "provider": "microsoft_graph",
+                                    "operation": "enrich_user",
+                                    "tenant_id": user.tenant_id,
+                                    "user_oid": user.oid,
+                                    "error_type": type(error).__name__,
+                                    "correlation_id": user.correlation_id,
+                                },
+                            )
+                            return user.model_copy(
+                                update={
+                                    "enrichment_enabled": True,
+                                    "enrichment_succeeded": False,
+                                    "enrichment_error_type": type(error).__name__,
+                                }
+                            )
+            ''',
         ),
         FileTemplate(
             "tests/__init__.py",

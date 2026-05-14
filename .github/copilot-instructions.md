@@ -30,4 +30,8 @@ Use `.github/skills/spc-driven/SKILL.md` para dimensionar o fluxo: rapido, medio
 
 Use `.github/skills/in-memory-cache/SKILL.md` quando a tarefa mencionar cache em memoria, cache local, memoizacao, TTL, LRU ou reducao de chamadas repetidas. Para avaliacoes pontuais, use tambem os prompts em `.github/prompts/avaliar-cache-memoria.prompt.md` e `.github/prompts/revisar-cache-memoria.prompt.md`.
 
+Use `.github/skills/fastapi-best-practices/references/authentication-authorization.md` quando a tarefa envolver endpoint autenticado, Azure AD/Microsoft Entra ID, autorizacao por owner/tenant/grupo/role ou repositories filtrados por usuario.
+
+Use `.github/skills/start-agents/SKILL.md` quando a tarefa envolver OpenAI Agents SDK, LangGraph, tools, guardrails, logging, tracing ou agentes que executam acoes em nome do usuario.
+
 Ao concluir uma tarefa, reporte arquivos alterados, skills usadas, validacoes executadas e riscos remanescentes.
