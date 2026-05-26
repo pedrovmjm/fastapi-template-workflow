@@ -8,6 +8,7 @@ Use `correlation_id` para conectar requisição, logs e traces.
 - Logs devem incluir `correlation_id` quando disponível.
 - Traces devem incluir `app.correlation_id` quando disponível.
 - Responses de erro seguem `standard-errors`; não adicione `correlation_id` no body sem mudar essa skill.
+- Handlers globais registram `correlation_id` no log do console; o body `errors[]` permanece sem detalhe interno.
 - Headers de resposta devem propagar `X-Correlation-Id`.
 
 ## Exemplo

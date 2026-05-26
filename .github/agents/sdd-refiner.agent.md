@@ -34,6 +34,7 @@ Voce e o agente de refinamento SDD/SPC. Sua funcao e encontrar ambiguidade, exce
 | Revisar banco, sessoes, transacoes, migrations, indices ou persistencia. | `.github/skills/standard-database/SKILL.md` |
 | Revisar settings, providers, values domains ou singletons. | `.github/skills/standard-configs/SKILL.md` |
 | Revisar contrato publico de erro ou exception mapping. | `.github/skills/standard-errors/SKILL.md` |
+| Revisar separacao entre log de console e erro HTTP. | `.github/skills/standard-logs/references/log-levels-vs-http-errors.md` |
 | Revisar logs, traces, correlation id ou observabilidade. | `.github/skills/standard-logs/SKILL.md` e `.github/skills/standard-traces/SKILL.md` |
 | Quando requisitos envolvem permissao, dados sensiveis, integracoes ou abuso. | `.github/skills/standard-security/SKILL.md` |
 | Quando criterios precisam virar testes. | `.github/skills/standard-tests/SKILL.md` |

@@ -142,10 +142,10 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 - `src/main.py`: composicao da aplicacao FastAPI, lifespan, recursos globais, middlewares, rotas e telemetry.
 - `src/configs/`: carregamento de settings, clients e providers compartilhados.
 - `src/configs/values_domains/`: modelos Pydantic separados por dominio de configuracao.
-- `src/middlewares/api_version.py`: resolucao da versao da API por header.
+- `src/middlewares/api_version.py`: resolucao da versao da API por path (`/api-internal/vN`), com header como complemento.
 - `src/models/auth/`: contratos internos para usuario autenticado, grupos e superior direto.
 - `src/models/utils/`: contratos compartilhados para `meta` e `links` em respostas HTTP, com helper assíncrono para montar o contexto dinâmico de respostas `GET`.
-- `src/routes/health/`: endpoint `/health` com envelope `data`, `meta` e `links`.
+- `src/routes/health/`: endpoint `/api-internal/v1/health` com envelope `data`, `meta` e `links`.
 - `src/security/`: validacao JWT Azure AD, dependencies FastAPI e helpers de scopes, roles e grupos.
 - `src/observability/`: logging estruturado e setup de tracing OpenTelemetry.
 - `src/repository/microsoft_graph/`: chamadas tecnicas ao Microsoft Graph para perfil, manager, grupos diretos e foto.
@@ -169,7 +169,7 @@ python start.py
 
 Com a aplicacao rodando, acesse:
 
-- `GET /health`
+- `GET /api-internal/v1/health`
 - `/docs`
 - `/redoc`
 

@@ -48,6 +48,7 @@ Inclua quando existir:
 - Marque `app.agent.name`, `app.agent.sdk`, `app.tool.name`, `app.auth.decision`, `app.auth.reason_code`, `app.layer`, `app.correlation_id`, `app.tenant_id`.
 - Negacao esperada de autorizacao pode ser resultado de negocio com `decision=denied`; falha tecnica deve marcar status de erro.
 - Relance excecoes para handlers globais depois de registrar contexto seguro.
+- Logs de agente vao para o console (`standard-logs`); respostas HTTP ao cliente seguem `standard-errors` — veja `standard-logs/references/log-levels-vs-http-errors.md`.
 
 ## Exemplo de log
 

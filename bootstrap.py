@@ -128,6 +128,7 @@ def build_file_templates() -> list[FileTemplate]:
             APP__VERSION=0.1.0
             APP__ENVIRONMENT=local
             APP__DEFAULT_API_VERSION=$api_version
+            APP__API_ROUTE_BASE_PREFIX=/api-internal
             APP__API_VERSION_HEADER_NAME=X-API-Version
             APP__CORRELATION_ID_HEADER_NAME=X-Correlation-Id
             APP__DOCS_URL=/docs
@@ -178,7 +179,7 @@ def build_file_templates() -> list[FileTemplate]:
             AUTH__GRAPH_INCLUDE_PHOTO=true
             AUTH__GRAPH_MAX_GROUP_PAGES=5
 
-            LOGGING__LEVEL=WARNING
+            LOGGING__LEVEL=INFO
             LOGGING__JSON_ENABLED=true
 
             TELEMETRY__ENABLED=true
@@ -186,7 +187,7 @@ def build_file_templates() -> list[FileTemplate]:
             TELEMETRY__SERVICE_NAMESPACE=$project_domain
             TELEMETRY__EXPORTER=console
             TELEMETRY__SAMPLE_RATE=1.0
-            TELEMETRY__EXCLUDED_URLS=/health
+            TELEMETRY__EXCLUDED_URLS=/api-internal/$api_version/health
             TELEMETRY__INSTRUMENT_FASTAPI=true
             TELEMETRY__FASTAPI_EXCLUDE_INTERNAL_SPANS=true
             TELEMETRY__INSTRUMENT_HTTPX=true
@@ -307,6 +308,7 @@ def build_file_templates() -> list[FileTemplate]:
             from src.middlewares.correlation_id import CorrelationIdMiddleware
             from src.observability.logging.logging import configure_logging
             from src.observability.telemetry.setup import configure_telemetry
+            from src.routes.exception_handlers import register_exception_handlers
             from src.routes.health import health
 
 
@@ -411,6 +413,7 @@ def build_file_templates() -> list[FileTemplate]:
                     ApiVersionMiddleware,
                     default_api_version=settings.app.default_api_version,
                     header_name=settings.app.api_version_header_name,
+                    api_route_base_prefix=settings.app.api_route_base_prefix,
                 )
                 app.add_middleware(
                     CorrelationIdMiddleware,
@@ -429,16 +432,21 @@ def build_file_templates() -> list[FileTemplate]:
                     )
 
 
-            def _register_routes(app: FastAPI) -> None:
+            def _register_routes(app: FastAPI, settings: Settings) -> None:
                 """Registra routers publicos da aplicacao.
 
                 Parameters
                 ----------
                 app : FastAPI
                     Instancia FastAPI que recebera rotas.
+                settings : Settings
+                    Configuracoes usadas para montar o prefixo versionado das rotas.
                 """
 
-                app.include_router(health.router)
+                app.include_router(
+                    health.router,
+                    prefix=settings.app.resolve_api_router_prefix(),
+                )
 
 
             def create_app() -> FastAPI:
@@ -466,7 +474,8 @@ def build_file_templates() -> list[FileTemplate]:
                 configure_telemetry(app=app, settings=settings)
 
                 _register_middlewares(app=app, settings=settings)
-                _register_routes(app=app)
+                _register_routes(app=app, settings=settings)
+                register_exception_handlers(app=app)
                 return app
 
 
@@ -1362,14 +1371,21 @@ def build_file_templates() -> list[FileTemplate]:
                 )
                 default_api_version: str = Field(
                     "$api_version",
-                    description="Versao padrao da API quando a requisicao nao informa uma versao.",
+                    description="Versao padrao da API quando path e header nao informam uma versao.",
                     min_length=2,
                     max_length=8,
                     pattern="^v[0-9]+$",
                 )
+                api_route_base_prefix: str = Field(
+                    "/api-internal",
+                    description="Prefixo base das rotas HTTP internas, sem o segmento de versao.",
+                    min_length=2,
+                    max_length=128,
+                    pattern="^/[a-zA-Z0-9/_-]+$",
+                )
                 api_version_header_name: str = Field(
                     "X-API-Version",
-                    description="Header HTTP usado para propagar a versao identificada da API.",
+                    description="Header HTTP opcional que complementa a versao quando o path nao a informa.",
                     min_length=1,
                     max_length=64,
                 )
@@ -1397,6 +1413,13 @@ def build_file_templates() -> list[FileTemplate]:
                     min_length=1,
                     max_length=128,
                 )
+
+                def resolve_api_router_prefix(self) -> str:
+                    """Monta o prefixo versionado usado no registro dos routers internos."""
+
+                    base = self.api_route_base_prefix.strip("/")
+                    version = self.default_api_version.strip("/")
+                    return f"/{base}/{version}"
             ''',
         ),
         FileTemplate(
@@ -1797,7 +1820,10 @@ def build_file_templates() -> list[FileTemplate]:
                 )
                 json_enabled: bool = Field(
                     True,
-                    description="Indica se os logs devem ser emitidos em JSON estruturado.",
+                    description=(
+                        "Indica se os logs devem ser emitidos em JSON estruturado. "
+                        "Quando desativado, usa formato legivel no terminal mantendo campos estruturados."
+                    ),
                 )
 
                 @field_validator("level", mode="before")
@@ -1853,7 +1879,7 @@ def build_file_templates() -> list[FileTemplate]:
                     le=1.0,
                 )
                 excluded_urls: list[str] = Field(
-                    default_factory=lambda: ["/health"],
+                    default_factory=lambda: ["/api-internal/$api_version/health"],
                     description="Paths ou regexes separados por virgula que nao devem gerar spans FastAPI.",
                     min_length=0,
                     max_length=100,
@@ -2250,24 +2276,28 @@ def build_file_templates() -> list[FileTemplate]:
                 app : object
                     Aplicacao ASGI decorada pelo middleware.
                 default_api_version : str
-                    Versao usada quando header e path nao informam uma versao valida.
+                    Versao usada quando path e header nao informam uma versao valida.
+                api_route_base_prefix : str
+                    Prefixo base das rotas internas usado para localizar `vN` no path.
                 header_name : str
-                    Nome do header HTTP usado para entrada e saida da versao.
+                    Nome do header HTTP usado como complemento e para eco na resposta.
 
                 Notes
                 -----
-                A versao identificada fica em `request.state.api_version` e tambem
-                volta na resposta pelo header configurado.
+                A resolucao prioriza o path (`/api-internal/vN/...`), usa o header apenas
+                quando o path nao informa versao e devolve o valor identificado na resposta.
                 """
 
                 def __init__(
                     self,
                     app: object,
                     default_api_version: str,
+                    api_route_base_prefix: str = "/api-internal",
                     header_name: str = "X-API-Version",
                 ) -> None:
                     super().__init__(app)
                     self._default_api_version = default_api_version
+                    self._api_route_base_prefix = api_route_base_prefix.strip("/").lower()
                     self._header_name = header_name
 
                 async def dispatch(
@@ -2298,7 +2328,11 @@ def build_file_templates() -> list[FileTemplate]:
                     return response
 
                 def _resolve_api_version(self, request: Request) -> str:
-                    """Resolve a versao por header, path ou fallback configurado."""
+                    """Resolve a versao por path, header complementar ou fallback configurado."""
+
+                    path_version = self._extract_path_version(path=request.url.path)
+                    if path_version is not None:
+                        return path_version
 
                     header_version = request.headers.get(self._header_name)
                     if header_version:
@@ -2306,17 +2340,27 @@ def build_file_templates() -> list[FileTemplate]:
                         if _API_VERSION_PATTERN.fullmatch(normalized_header_version):
                             return normalized_header_version
 
-                    path_version = self._extract_path_version(path=request.url.path)
-                    if path_version is not None:
-                        return path_version
-
                     return self._default_api_version
 
-                @staticmethod
-                def _extract_path_version(path: str) -> str | None:
-                    """Extrai a versao quando o primeiro segmento do path e `vN`."""
+                def _extract_path_version(self, path: str) -> str | None:
+                    """Extrai `vN` do path apos o prefixo base ou no primeiro segmento."""
 
-                    first_segment = path.strip("/").split("/", maxsplit=1)[0].lower()
+                    segments = [segment.lower() for segment in path.strip("/").split("/") if segment]
+                    if not segments:
+                        return None
+
+                    if self._api_route_base_prefix:
+                        base_segments = [
+                            segment for segment in self._api_route_base_prefix.split("/") if segment
+                        ]
+                        if len(segments) > len(base_segments):
+                            if segments[: len(base_segments)] == base_segments:
+                                candidate = segments[len(base_segments)]
+                                if _API_VERSION_PATTERN.fullmatch(candidate):
+                                    return candidate
+                        return None
+
+                    first_segment = segments[0]
                     if _API_VERSION_PATTERN.fullmatch(first_segment):
                         return first_segment
 
@@ -2504,6 +2548,59 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
+            "src/models/errors/__init__.py",
+            '"""Modelos do contrato publico de erro da API."""\n',
+        ),
+        FileTemplate(
+            "src/models/errors/error_response.py",
+            '''
+            """Define o envelope padrao de erros HTTP retornado pela API."""
+
+            from pydantic import BaseModel, ConfigDict, Field
+
+
+            class ErrorResponseItem(BaseModel):
+                """Representa um erro publico retornado pela API."""
+
+                model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+                code: int = Field(
+                    ...,
+                    description="Codigo HTTP/status numerico retornado pela resposta.",
+                    ge=100,
+                    le=599,
+                    examples=[404],
+                )
+                title: str = Field(
+                    ...,
+                    description="Identificador estavel e legivel por maquina que classifica o erro.",
+                    min_length=1,
+                    max_length=80,
+                    pattern="^[A-Z][A-Z0-9_]*$",
+                    examples=["RESOURCE_NOT_FOUND"],
+                )
+                message: str = Field(
+                    ...,
+                    description="Mensagem segura que explica a falha sem expor detalhes internos.",
+                    min_length=1,
+                    max_length=500,
+                    examples=["O recurso solicitado nao foi encontrado."],
+                )
+
+
+            class ErrorResponse(BaseModel):
+                """Envelope padrao para respostas de erro da API."""
+
+                model_config = ConfigDict(extra="forbid")
+
+                errors: list[ErrorResponseItem] = Field(
+                    ...,
+                    description="Lista de erros retornados pela operacao.",
+                    min_length=1,
+                )
+            ''',
+        ),
+        FileTemplate(
             "src/models/health/__init__.py",
             '"""Modelos do endpoint de health check."""\n',
         ),
@@ -2608,7 +2705,7 @@ def build_file_templates() -> list[FileTemplate]:
                     description="URL do recurso ou endpoint que produziu a resposta.",
                     min_length=1,
                     max_length=2048,
-                    examples=["http://localhost:8000/health"],
+                    examples=["http://localhost:8000/api-internal/$api_version/health"],
                 )
                 first: str | None = Field(
                     None,
@@ -3431,26 +3528,85 @@ def build_file_templates() -> list[FileTemplate]:
                 "access_token",
                 "refresh_token",
             }
+            _PRIORITY_FIELD_ORDER = (
+                "event",
+                "layer",
+                "correlation_id",
+                "trace_id",
+                "span_id",
+            )
+
+
+            def _format_field_value(value: Any) -> str:
+                """Representa um valor de campo de log de forma segura para leitura humana."""
+
+                if isinstance(value, str):
+                    if any(character in value for character in (" ", "=", "[", "]")):
+                        return json.dumps(value, ensure_ascii=False)
+                    return value
+                return str(value)
+
+
+            def _current_trace_fields() -> dict[str, str]:
+                """Retorna trace id e span id do span OpenTelemetry ativo, quando disponiveis."""
+
+                try:
+                    from opentelemetry import trace
+                except ImportError:
+                    return {}
+
+                span = trace.get_current_span()
+                span_context = span.get_span_context()
+                if not span_context.is_valid or span_context.trace_id == _INVALID_TRACE_ID:
+                    return {}
+
+                return {
+                    "trace_id": trace.format_trace_id(span_context.trace_id),
+                    "span_id": trace.format_span_id(span_context.span_id),
+                }
+
+
+            def _collect_extra_fields(record: logging.LogRecord) -> dict[str, Any]:
+                """Extrai campos estruturados do registro, excluindo atributos padrao e sensiveis."""
+
+                fields: dict[str, Any] = {
+                    "event": getattr(record, "event", "application.log"),
+                    "layer": getattr(record, "layer", "application"),
+                }
+
+                correlation_id = getattr(record, "correlation_id", None)
+                if correlation_id is None:
+                    correlation_id = get_current_correlation_id()
+                if correlation_id:
+                    fields["correlation_id"] = correlation_id
+
+                fields.update(_current_trace_fields())
+
+                for key, value in record.__dict__.items():
+                    if key in _STANDARD_LOG_RECORD_ATTRS or key in fields:
+                        continue
+                    if key.lower() in _SENSITIVE_LOG_KEYS:
+                        continue
+                    fields[key] = value
+
+                return fields
+
+
+            def _ordered_field_items(fields: dict[str, Any]) -> list[tuple[str, Any]]:
+                """Ordena campos com chaves de correlacao primeiro para leitura em terminal."""
+
+                ordered: list[tuple[str, Any]] = []
+                remaining = dict(fields)
+                for key in _PRIORITY_FIELD_ORDER:
+                    if key in remaining:
+                        ordered.append((key, remaining.pop(key)))
+                for key in sorted(remaining):
+                    ordered.append((key, remaining[key]))
+                return ordered
 
 
             class JsonLogFormatter(logging.Formatter):
                 """Formata registros de log em JSON estruturado."""
-
-                def _add_trace_context(self, payload: dict[str, Any]) -> None:
-                    """Adiciona trace id e span id do span ativo quando disponiveis."""
-
-                    try:
-                        from opentelemetry import trace
-                    except ImportError:
-                        return
-
-                    span = trace.get_current_span()
-                    span_context = span.get_span_context()
-                    if not span_context.is_valid or span_context.trace_id == _INVALID_TRACE_ID:
-                        return
-
-                    payload["trace_id"] = trace.format_trace_id(span_context.trace_id)
-                    payload["span_id"] = trace.format_span_id(span_context.span_id)
 
                 def format(self, record: logging.LogRecord) -> str:
                     """Serializa um registro de log em JSON seguro.
@@ -3471,28 +3627,49 @@ def build_file_templates() -> list[FileTemplate]:
                         "level": record.levelname,
                         "logger": record.name,
                         "message": record.getMessage(),
-                        "event": getattr(record, "event", "application.log"),
-                        "layer": getattr(record, "layer", "application"),
                     }
-
-                    correlation_id = getattr(record, "correlation_id", None)
-                    if correlation_id is None:
-                        correlation_id = get_current_correlation_id()
-                    if correlation_id:
-                        payload["correlation_id"] = correlation_id
-                    self._add_trace_context(payload=payload)
-
-                    for key, value in record.__dict__.items():
-                        if key in _STANDARD_LOG_RECORD_ATTRS or key in payload:
-                            continue
-                        if key.lower() in _SENSITIVE_LOG_KEYS:
-                            continue
-                        payload[key] = value
+                    payload.update(_collect_extra_fields(record))
 
                     if record.exc_info:
                         payload["exception"] = self.formatException(record.exc_info)
 
                     return json.dumps(payload, default=str, ensure_ascii=False)
+
+
+            class ReadableLogFormatter(logging.Formatter):
+                """Formata logs para leitura humana no terminal com campos estruturados."""
+
+                def format(self, record: logging.LogRecord) -> str:
+                    """Monta uma linha de log textual com contexto estruturado entre colchetes.
+
+                    Parameters
+                    ----------
+                    record : logging.LogRecord
+                        Registro emitido pela biblioteca `logging`.
+
+                    Returns
+                    -------
+                    str
+                        Linha pronta para escrita no handler configurado.
+                    """
+
+                    fields = _collect_extra_fields(record)
+                    context = ""
+                    if fields:
+                        pairs = [
+                            f"{key}={_format_field_value(value)}"
+                            for key, value in _ordered_field_items(fields)
+                        ]
+                        context = f" [{' '.join(pairs)}]"
+
+                    message = record.getMessage()
+                    if record.exc_info:
+                        message = f"{message}\\n{self.formatException(record.exc_info)}"
+
+                    return (
+                        f"{self.formatTime(record, self.datefmt)} "
+                        f"{record.levelname} {record.name}{context} {message}"
+                    )
 
 
             def configure_logging(settings: Settings) -> None:
@@ -3512,8 +3689,8 @@ def build_file_templates() -> list[FileTemplate]:
                     handler.setFormatter(JsonLogFormatter())
                 else:
                     handler.setFormatter(
-                        logging.Formatter(
-                            "%(asctime)s %(levelname)s %(name)s %(message)s",
+                        ReadableLogFormatter(
+                            datefmt="%Y-%m-%d %H:%M:%S",
                         ),
                     )
 
@@ -3716,7 +3893,7 @@ def build_file_templates() -> list[FileTemplate]:
                         except Exception as error:
                             span.record_exception(error)
                             span.set_status(Status(StatusCode.ERROR, type(error).__name__))
-                            logger.warning(
+                            logger.error(
                                 "Falha ao buscar perfil no Microsoft Graph.",
                                 extra={
                                     "event": "microsoft_graph.user_profile_failed",
@@ -4191,7 +4368,7 @@ def build_file_templates() -> list[FileTemplate]:
                                 span.record_exception(error)
                                 span.set_status(Status(StatusCode.ERROR, type(error).__name__))
                                 span.set_attribute("app.result", "failed")
-                                logger.warning(
+                                logger.error(
                                     "Falha em operacao de object storage.",
                                     extra={
                                         "event": "object_storage.operation_failed",
@@ -4619,7 +4796,7 @@ def build_file_templates() -> list[FileTemplate]:
                                 span.record_exception(error)
                                 span.set_status(Status(StatusCode.ERROR, type(error).__name__))
                                 span.set_attribute("app.result", "failed")
-                                logger.warning(
+                                logger.error(
                                     "Falha em operacao de object storage.",
                                     extra={
                                         "event": "object_storage.operation_failed",
@@ -5271,7 +5448,7 @@ def build_file_templates() -> list[FileTemplate]:
             from collections.abc import Callable, Iterable
             from typing import Annotated
 
-            from fastapi import Depends, HTTPException, Request, status
+            from fastapi import Depends, Request
             from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
             from src.configs.httpx_client import get_httpx_client
@@ -5315,39 +5492,28 @@ def build_file_templates() -> list[FileTemplate]:
                 """
 
                 if credentials is None or credentials.scheme.lower() != "bearer":
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Token ausente.",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
+                    raise AuthenticationFailedError("Token ausente.")
 
-                try:
-                    http_client = await get_httpx_client(settings=settings)
-                    claims = await decode_and_validate_access_token(
-                        token=credentials.credentials,
-                        client=http_client,
-                        settings=settings,
-                    )
-                    correlation_id = getattr(request.state, "correlation_id", None)
-                    user = UserContextService().build_from_claims(
-                        claims=claims,
-                        settings=settings,
-                        correlation_id=correlation_id,
-                    )
-                    graph_repository = MicrosoftGraphRepository(
-                        client=http_client,
-                        settings=settings,
-                    )
-                    return await MicrosoftGraphUserEnrichmentService(
-                        repository=graph_repository,
-                        settings=settings,
-                    ).enrich(user=user)
-                except AuthenticationFailedError as exc:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Token invalido.",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    ) from exc
+                http_client = await get_httpx_client(settings=settings)
+                claims = await decode_and_validate_access_token(
+                    token=credentials.credentials,
+                    client=http_client,
+                    settings=settings,
+                )
+                correlation_id = getattr(request.state, "correlation_id", None)
+                user = UserContextService().build_from_claims(
+                    claims=claims,
+                    settings=settings,
+                    correlation_id=correlation_id,
+                )
+                graph_repository = MicrosoftGraphRepository(
+                    client=http_client,
+                    settings=settings,
+                )
+                return await MicrosoftGraphUserEnrichmentService(
+                    repository=graph_repository,
+                    settings=settings,
+                ).enrich(user=user)
 
 
             def require_user(
@@ -5366,24 +5532,17 @@ def build_file_templates() -> list[FileTemplate]:
                 async def dependency(
                     user: Annotated[UserContext, Depends(get_current_user)],
                 ) -> UserContext:
-                    try:
-                        ensure_user_permissions(
-                            user,
-                            any_scopes=any_scopes,
-                            all_scopes=all_scopes,
-                            any_roles=any_roles,
-                            all_roles=all_roles,
-                            required_roles=required_roles,
-                            any_groups=any_groups,
-                            all_groups=all_groups,
-                            required_groups=required_groups,
-                        )
-                    except AuthorizationDeniedError as exc:
-                        raise HTTPException(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            detail="Permissao insuficiente.",
-                        ) from exc
-
+                    ensure_user_permissions(
+                        user,
+                        any_scopes=any_scopes,
+                        all_scopes=all_scopes,
+                        any_roles=any_roles,
+                        all_roles=all_roles,
+                        required_roles=required_roles,
+                        any_groups=any_groups,
+                        all_groups=all_groups,
+                        required_groups=required_groups,
+                    )
                     return user
 
                 return dependency
@@ -5423,6 +5582,237 @@ def build_file_templates() -> list[FileTemplate]:
                 """Exige todos os grupos informados por ID ou display name."""
 
                 return require_user(all_groups=groups)
+            ''',
+        ),
+        FileTemplate(
+            "src/routes/exception_handlers.py",
+            '''
+            """Converte excecoes conhecidas no contrato publico de erro da API."""
+
+            from __future__ import annotations
+
+            import logging
+
+            from fastapi import FastAPI, HTTPException, Request, status
+            from fastapi.exceptions import RequestValidationError
+            from fastapi.responses import JSONResponse
+
+            from src.models.errors.error_response import ErrorResponse, ErrorResponseItem
+            from src.services.auth.exceptions import (
+                AuthenticationFailedError,
+                AuthorizationDeniedError,
+            )
+
+
+            logger = logging.getLogger("app.exception_handlers")
+
+
+            def _error_response(
+                *,
+                status_code: int,
+                title: str,
+                message: str,
+            ) -> JSONResponse:
+                """Monta resposta HTTP no envelope padrao de erros.
+
+                Parameters
+                ----------
+                status_code : int
+                    Codigo HTTP retornado ao cliente.
+                title : str
+                    Identificador estavel do erro em `UPPER_SNAKE_CASE`.
+                message : str
+                    Mensagem segura exibida ao consumidor da API.
+
+                Returns
+                -------
+                JSONResponse
+                    Resposta serializada no contrato publico de erro.
+                """
+
+                payload = ErrorResponse(
+                    errors=[
+                        ErrorResponseItem(
+                            code=status_code,
+                            title=title,
+                            message=message,
+                        ),
+                    ],
+                )
+                return JSONResponse(
+                    status_code=status_code,
+                    content=payload.model_dump(mode="json"),
+                )
+
+
+            def _request_correlation_id(request: Request) -> str | None:
+                """Retorna correlation id da requisicao quando disponivel."""
+
+                return getattr(request.state, "correlation_id", None)
+
+
+            async def authentication_failed_handler(
+                request: Request,
+                exc: AuthenticationFailedError,
+            ) -> JSONResponse:
+                """Converte falha de autenticacao em resposta HTTP 401 segura."""
+
+                logger.info(
+                    "Requisicao recusada por autenticacao invalida.",
+                    extra={
+                        "event": "http.auth.unauthorized",
+                        "layer": "handler",
+                        "error_type": type(exc).__name__,
+                        "correlation_id": _request_correlation_id(request),
+                    },
+                )
+                response = _error_response(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    title="UNAUTHORIZED",
+                    message="Credenciais invalidas ou ausentes.",
+                )
+                response.headers["WWW-Authenticate"] = "Bearer"
+                return response
+
+
+            async def authorization_denied_handler(
+                request: Request,
+                exc: AuthorizationDeniedError,
+            ) -> JSONResponse:
+                """Converte negacao de autorizacao em resposta HTTP 403 segura."""
+
+                logger.info(
+                    "Requisicao recusada por permissao insuficiente.",
+                    extra={
+                        "event": "http.auth.forbidden",
+                        "layer": "handler",
+                        "error_type": type(exc).__name__,
+                        "correlation_id": _request_correlation_id(request),
+                    },
+                )
+                return _error_response(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    title="FORBIDDEN",
+                    message="Permissao insuficiente para a operacao solicitada.",
+                )
+
+
+            async def request_validation_error_handler(
+                request: Request,
+                exc: RequestValidationError,
+            ) -> JSONResponse:
+                """Converte erros de validacao do FastAPI no contrato publico."""
+
+                logger.info(
+                    "Requisicao recusada por dados invalidos.",
+                    extra={
+                        "event": "http.validation.failed",
+                        "layer": "handler",
+                        "error_count": len(exc.errors()),
+                        "correlation_id": _request_correlation_id(request),
+                    },
+                )
+                return _error_response(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    title="VALIDATION_ERROR",
+                    message="A requisicao possui campos invalidos.",
+                )
+
+
+            async def http_exception_handler(
+                request: Request,
+                exc: HTTPException,
+            ) -> JSONResponse:
+                """Normaliza HTTPException residual para o envelope padrao."""
+
+                title_by_status = {
+                    status.HTTP_401_UNAUTHORIZED: "UNAUTHORIZED",
+                    status.HTTP_403_FORBIDDEN: "FORBIDDEN",
+                    status.HTTP_404_NOT_FOUND: "RESOURCE_NOT_FOUND",
+                    status.HTTP_409_CONFLICT: "CONFLICT",
+                    status.HTTP_422_UNPROCESSABLE_ENTITY: "VALIDATION_ERROR",
+                }
+                title = title_by_status.get(exc.status_code, "HTTP_ERROR")
+                message = (
+                    exc.detail
+                    if isinstance(exc.detail, str) and exc.detail
+                    else "Nao foi possivel concluir a operacao solicitada."
+                )
+
+                if exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+                    logger.error(
+                        "Requisicao encerrada com HTTPException de servidor.",
+                        extra={
+                            "event": "http.exception.server",
+                            "layer": "handler",
+                            "status_code": exc.status_code,
+                            "title": title,
+                            "correlation_id": _request_correlation_id(request),
+                        },
+                    )
+                else:
+                    logger.info(
+                        "Requisicao encerrada com HTTPException de cliente.",
+                        extra={
+                            "event": "http.exception.client",
+                            "layer": "handler",
+                            "status_code": exc.status_code,
+                            "title": title,
+                            "correlation_id": _request_correlation_id(request),
+                        },
+                    )
+                return _error_response(
+                    status_code=exc.status_code,
+                    title=title,
+                    message=message,
+                )
+
+
+            async def unhandled_exception_handler(
+                request: Request,
+                exc: Exception,
+            ) -> JSONResponse:
+                """Converte falhas inesperadas em resposta HTTP 500 segura."""
+
+                logger.exception(
+                    "Falha inesperada ao processar requisicao.",
+                    extra={
+                        "event": "http.internal_error",
+                        "layer": "handler",
+                        "error_type": type(exc).__name__,
+                        "correlation_id": _request_correlation_id(request),
+                    },
+                )
+                return _error_response(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    title="INTERNAL_ERROR",
+                    message="Falha interna ao processar a requisicao.",
+                )
+
+
+            def register_exception_handlers(app: FastAPI) -> None:
+                """Registra handlers globais que separam log de console e erro HTTP.
+
+                Parameters
+                ----------
+                app : FastAPI
+                    Aplicacao que recebera os handlers globais.
+                """
+
+                app.add_exception_handler(
+                    AuthenticationFailedError,
+                    authentication_failed_handler,
+                )
+                app.add_exception_handler(
+                    AuthorizationDeniedError,
+                    authorization_denied_handler,
+                )
+                app.add_exception_handler(
+                    RequestValidationError,
+                    request_validation_error_handler,
+                )
+                app.add_exception_handler(HTTPException, http_exception_handler)
+                app.add_exception_handler(Exception, unhandled_exception_handler)
             ''',
         ),
         FileTemplate(

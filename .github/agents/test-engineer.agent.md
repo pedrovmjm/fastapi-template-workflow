@@ -41,6 +41,7 @@ Voce e o agente de testes deste repositorio. Sua funcao e transformar criterios 
 - Use unitario para regra isolada, integracao para fronteiras reais e E2E para fluxo critico.
 - Nao use mocks para esconder risco de integracao interna.
 - Valide envelopes `data`, `meta`, `links` e `errors` quando existirem.
+- Em falhas HTTP, asserte o body `errors[]` (`code`, `title`, `message`) separado do log de console; nao exija stack trace ou detalhe interno na resposta.
 - Execute os comandos reais de teste do projeto sempre que possivel.
 
 ## Descoberta de comandos

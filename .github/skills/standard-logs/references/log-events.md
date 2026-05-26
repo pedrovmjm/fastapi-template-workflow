@@ -9,6 +9,7 @@ Use eventos estáveis para que logs sejam filtráveis e úteis em incidentes.
 - O nome do evento deve seguir `dominio.acao` ou `camada.resultado`.
 - Eventos devem ser estáveis; não renomeie sem motivo.
 - Mensagens podem mudar, mas `event` deve permanecer compatível.
+- A mensagem deve complementar o `event` com contexto de negócio legível; veja [Mensagens orientadas ao negócio](log-messages.md).
 
 ## Exemplos
 

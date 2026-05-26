@@ -57,6 +57,8 @@ Voce nao cria, altera, executa nem corrige testes unitarios, testes de integraca
 - Mantenha endpoints finos, services com regra de negocio e repositories como execucao tecnica.
 - Use contratos Pydantic explicitos, envelopes e erros conforme as skills de modelos, endpoints e erros.
 - Nao exponha secrets, tokens, dados pessoais ou payloads sensiveis em logs, traces ou mensagens de erro.
+- Separe sempre log de console e erro HTTP: excecoes no dominio, envelope `errors[]` nos handlers (`standard-errors` + `src/routes/exception_handlers.py`); consulte `standard-logs/references/log-levels-vs-http-errors.md`.
+- Nao use `HTTPException` em service, repository ou security; nao use `logger.warning`/`logger.error` como substituto de resposta ao cliente.
 - Ao criar ou alterar services/repositories, consulte `standard-logs` e `standard-traces`; implemente logs estruturados e spans para operacoes relevantes ou registre justificativa explicita para ausencia.
 - Ao criar endpoints autenticados ou services/repositories autorizados, consulte `fastapi-best-practices/references/authentication-authorization.md` e propague contexto autenticado entre camadas sem passar token cru.
 - Ao criar agents/tools que atuam por usuario, consulte `standard-agents` e valide permissao server-side no handler da tool/node.

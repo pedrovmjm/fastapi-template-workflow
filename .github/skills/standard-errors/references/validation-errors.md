@@ -51,5 +51,6 @@ async def request_validation_error_handler(
 
 - Não retorne o array bruto de validações do Pydantic ao cliente sem revisão.
 - Não exponha valores recebidos no payload.
+- O handler deve usar `logger.info` com `event` estável (ex.: `http.validation.failed`); não confunda com `warning`.
 - Logs podem registrar contagem e localização dos erros, desde que sem dados sensíveis.
 - Se o projeto precisar de erros por campo, evolua esta skill antes de implementar.

@@ -35,6 +35,7 @@ Voce e o agente de planejamento SDD/SPC deste repositorio. Sua responsabilidade 
 | Quando houver banco, sessoes, transacoes, migrations, indices ou persistencia. | `.github/skills/standard-database/SKILL.md` |
 | Quando houver settings, providers, values domains ou singletons. | `.github/skills/standard-configs/SKILL.md` |
 | Quando houver contrato publico de erro ou exception mapping. | `.github/skills/standard-errors/SKILL.md` |
+| Quando precisar separar log de console e resposta HTTP. | `.github/skills/standard-logs/references/log-levels-vs-http-errors.md` |
 | Quando houver logs, traces, correlation id ou observabilidade. | `.github/skills/standard-logs/SKILL.md` e `.github/skills/standard-traces/SKILL.md` |
 | Quando houver Azure AD, endpoint autenticado, posse de recurso, grupos/roles, tenant ou contexto autenticado. | `.github/skills/fastapi-best-practices/references/authentication-authorization.md` |
 | Quando houver OpenAI Agents SDK, LangGraph, tools, guardrails, logs ou traces de agentes. | `.github/skills/start-agents/SKILL.md` |
