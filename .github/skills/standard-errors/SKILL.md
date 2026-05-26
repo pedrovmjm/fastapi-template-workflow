@@ -31,6 +31,14 @@ Esta skill não é dona de:
 | Quando precisar aprofundar mapeamento de exceções. | [Mapeamento de exceções](references/exception-mapping.md) |
 | Quando precisar aprofundar normalização de erros de validação. | [Normalização de erros de validação](references/validation-errors.md) |
 
+## Logs vs erros HTTP (obrigatório)
+
+- O body `errors[]` é a **única** mensagem para o consumidor da API.
+- Handlers em `src/routes/exception_handlers.py` convertem exceções e registram logs (`info` para 4xx, `error`/`exception` para 5xx).
+- Domínio (`service`, `repository`, `security`) **não** retorna `HTTPException` nem JSON de erro; apenas lança exceções tipadas.
+- Detalhes internos vão para logs via `standard-logs`, nunca para `message` do erro público.
+- Consulte [Níveis de log vs erros HTTP](../standard-logs/references/log-levels-vs-http-errors.md) para a matriz completa.
+
 ## Regras Obrigatórias
 
 - Toda resposta de erro deve ser encapsulada no campo raiz `errors`.

@@ -43,6 +43,9 @@ Use estas skills apenas como referências para delegação. Não execute uma ski
 | Repositories, banco, providers ou configurações | `.github/skills/standard-repositories/SKILL.md`, `.github/skills/standard-database/SKILL.md`, `.github/skills/standard-configs/SKILL.md`, `.github/skills/standard-logs/SKILL.md`, `.github/skills/standard-traces/SKILL.md` | `sdd-planner`, `sdd-refiner` ou `coder-engineer` |
 | Integrações externas, logs ou traces | `.github/skills/standard-integrations/SKILL.md`, `.github/skills/standard-logs/SKILL.md`, `.github/skills/standard-traces/SKILL.md` | `sdd-planner`, `sdd-refiner`, `coder-engineer` e depois `security-reviewer` |
 | Middleware, headers, correlation id ou logging transversal | `.github/skills/standard-middleware/SKILL.md`, `.github/skills/standard-security/SKILL.md`, `.github/skills/standard-logs/SKILL.md` | `sdd-planner`, `sdd-refiner`, `coder-engineer` e depois `security-reviewer` |
+| Commit com Conventional Commits apos validacao | `.github/skills/conventional-commit/SKILL.md` | Usuario aprova; agente com shell executa apos `sim` |
+| Abrir Pull Request no GitHub | `.github/skills/create-pull-request/SKILL.md` | Usuario aprova; agente com shell executa apos `sim` |
+| Revisar PR existente (multi-persona) | `.github/skills/pr-review/SKILL.md` | Sob demanda do usuario |
 
 ## Workflow forte
 
@@ -60,6 +63,7 @@ Use este fluxo como padrao:
 10. Chame explicitamente `test-engineer` para criar ou ajustar testes e executar suites proporcionais aos criterios de aceite e findings de seguranca.
 11. Chame explicitamente `lint-engineer` para executar lint, format check e type check conforme o projeto permitir.
 12. Consolide resultado, pendencias, comandos executados, arquivos alterados e qualquer `SPEC_DEVIATION`.
+13. Se o usuario quiser versionar: apresente resumo para commit (skill `conventional-commit`), **pare** ate aprovacao; apos commit, ofereca PR (skill `create-pull-request`), **pare** ate nova aprovacao.
 
 ## Regras de delegacao
 
@@ -73,6 +77,7 @@ Use este fluxo como padrao:
 - No handoff para `coder-engineer`, declare explicitamente que `tests/**`, fixtures, snapshots, `conftest.py`, configuracoes de pytest e comandos de teste/lint/type check estao fora do escopo do coder.
 - Em qualquer handoff de implementacao que altere codigo Python, encaminhe explicitamente `.github/skills/standard-docstrings/SKILL.md` ao `coder-engineer` e exija docstrings em pt-BR no formato NumPy para modulos, classes, funcoes e metodos publicos novos ou alterados.
 - Em qualquer handoff de implementacao que crie ou altere services/repositories, encaminhe explicitamente `.github/skills/standard-logs/SKILL.md` e `.github/skills/standard-traces/SKILL.md` ao `coder-engineer` e exija logs/spans ou justificativa explicita para ausencia.
+- Em handoffs que alterem falhas HTTP, encaminhe `standard-errors` e `standard-logs/references/log-levels-vs-http-errors.md`; exija excecoes tipadas no dominio e handlers globais para o body `errors[]`, sem misturar nivel de log com mensagem publica.
 - Em qualquer handoff que envolva endpoint autenticado, Azure AD, owner, tenant, grupos ou roles, encaminhe `.github/skills/fastapi-best-practices/references/authentication-authorization.md`.
 - Em qualquer handoff que envolva OpenAI Agents SDK, LangGraph, tools ou workflows agenticos, encaminhe `.github/skills/start-agents/SKILL.md`.
 - Delegue seguranca para `security-reviewer` antes de concluir qualquer mudanca que toque auth, dados pessoais, secrets, permissao, logs, traces, uploads, LLM, webhooks, CORS ou rate limiting.
@@ -93,6 +98,20 @@ Exija que cada subagent retorne:
 - Validacoes executadas com comando exato, exit code e resumo do output quando o agente tiver ferramenta e ownership para executar validacoes; caso contrario, pendencias de validacao para o agente responsavel.
 - `SPEC_DEVIATION`, quando o codigo precisar divergir da especificacao.
 
+## Gates de commit e PR (obrigatorio)
+
+O orquestrador **nunca** executa `git commit`, `git push` nem `gh pr create`.
+
+Ao concluir implementacao, testes e lint:
+
+1. Apresente resumo de validacao (o que foi feito, arquivos, comandos, riscos).
+2. Indique que o proximo passo e commit via `.github/skills/conventional-commit/SKILL.md`.
+3. **Pare e aguarde** o usuario validar e aprovar o commit (`sim`, `pode commitar`, etc.).
+4. Somente apos commit aprovado e executado pelo usuario/agente autorizado, ofereca PR via `.github/skills/create-pull-request/SKILL.md`.
+5. **Pare e aguarde** nova aprovacao explicita antes de abrir o PR.
+
+Commit e PR sao dois gates independentes. Aprovacao em um nao autoriza o outro.
+
 ## Criterios de conclusao
 
 Uma tarefa so esta pronta quando:
@@ -104,3 +123,4 @@ Uma tarefa so esta pronta quando:
 - Lint, format e type checks foram executados ou a impossibilidade foi registrada.
 - Arquivos alterados e validacoes declaradas possuem evidencia verificavel no workspace ou no output de comando.
 - O resumo final informa arquivos relevantes, validacoes e riscos remanescentes.
+- Se o usuario pediu versionamento: commit e/ou PR so ocorreram apos aprovacao explicita nas skills `conventional-commit` e `create-pull-request`.

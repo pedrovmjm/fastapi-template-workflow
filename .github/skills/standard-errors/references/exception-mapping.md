@@ -4,15 +4,15 @@ Use esta referência para converter exceções conhecidas em respostas HTTP padr
 
 ## Tabela Recomendada
 
-| Exceção | Status | Title |
-| --- | ---: | --- |
-| `DomainValidationError` | 422 | `DOMAIN_VALIDATION_ERROR` |
-| `ResourceNotFoundError` | 404 | `RESOURCE_NOT_FOUND` |
-| `ConflictError` | 409 | `CONFLICT` |
-| `AuthenticationError` | 401 | `UNAUTHORIZED` |
-| `AuthorizationError` | 403 | `FORBIDDEN` |
-| `ExternalDependencyError` | 502 | `EXTERNAL_DEPENDENCY_ERROR` |
-| `UnexpectedApplicationError` | 500 | `INTERNAL_ERROR` |
+| Exceção | Status | Title | Log no handler (console) |
+| --- | ---: | --- | --- |
+| `DomainValidationError` | 422 | `DOMAIN_VALIDATION_ERROR` | `info` (`http.validation.failed`) |
+| `ResourceNotFoundError` | 404 | `RESOURCE_NOT_FOUND` | `info` |
+| `ConflictError` | 409 | `CONFLICT` | `info` |
+| `AuthenticationFailedError` | 401 | `UNAUTHORIZED` | `info` (`http.auth.unauthorized`) |
+| `AuthorizationDeniedError` | 403 | `FORBIDDEN` | `info` (`http.auth.forbidden`) |
+| `ExternalDependencyError` | 502 | `EXTERNAL_DEPENDENCY_ERROR` | `error` |
+| `Exception` (inesperada) | 500 | `INTERNAL_ERROR` | `exception` (`http.internal_error`) |
 
 ## Handler
 
@@ -57,5 +57,7 @@ async def resource_not_found_handler(
 ## Regras
 
 - O handler não deve expor `str(exc)` quando a exceção carregar detalhe interno.
-- O handler pode usar `request` para logs, mas não deve colocar `Request` no domínio.
-- O registro do handler pertence a `fastapi-best-practices`.
+- O handler registra log no console e retorna o envelope `errors[]`; não misture as duas responsabilidades no domínio.
+- O handler pode usar `request` para `correlation_id` em logs, mas não deve colocar `Request` no domínio.
+- Antes do handler, a camada que falhou registra no console (`warning` para degradação, `error` para falha fatal) sem alterar o envelope HTTP; veja `standard-logs/references/log-levels-vs-http-errors.md`.
+- O registro do handler pertence a `fastapi-best-practices` e ao template `src/routes/exception_handlers.py` gerado pelo bootstrap.

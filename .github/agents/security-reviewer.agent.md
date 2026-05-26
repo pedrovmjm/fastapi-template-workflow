@@ -42,6 +42,7 @@ Verifique obrigatoriamente:
 - BOLA/BFLA em rotas com ids, usuarios, tenants ou acoes por recurso.
 - Validacao de inputs e limites de payload.
 - Vazamento de dados em responses, erros, logs e traces.
+- Separacao entre log de console e body `errors[]` (sem stack trace, token ou `str(exc)` na resposta HTTP); veja `standard-logs/references/log-levels-vs-http-errors.md`.
 - Secrets, tokens, cookies, headers e variaveis de ambiente.
 - CORS, rate limiting e abuse prevention.
 - Cache em memoria com dados sensiveis, chaves de alta cardinalidade, permissoes stale ou mascaramento de falha em health/readiness.

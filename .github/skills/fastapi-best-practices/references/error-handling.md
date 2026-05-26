@@ -8,10 +8,13 @@ O contrato público do body de erro pertence à skill `standard-errors`. Esta re
 
 - Erros de domínio devem ter tipos próprios.
 - Endpoints não devem repetir `try/except` para toda rota.
-- Handlers globais devem registrar erro e retornar o contrato público definido por `standard-errors`.
+- Handlers globais em `src/routes/exception_handlers.py` devem **registrar log no console** e **retornar** o contrato `errors[]` de `standard-errors`.
+- Services, repositories e security lançam exceções; **não** convertem falha em `HTTPException` com `detail` solto.
 - Mensagens externas devem ser claras, mas sem revelar detalhes internos.
-- Erros inesperados devem retornar `500` com mensagem segura.
+- Erros inesperados devem retornar `500` com mensagem segura e `logger.exception` no handler.
+- Recusas esperadas (`401`, `403`, `422`) usam `logger.info` no handler; falhas técnicas usam `logger.error`/`exception` antes ou no handler.
 - `correlation_id` deve ser usado em logs e traces; não adicione ao body de erro salvo decisão explícita em `standard-errors`.
+- Matriz de níveis de log vs HTTP: `standard-logs/references/log-levels-vs-http-errors.md`.
 
 ## Exemplo
 
@@ -61,13 +64,19 @@ async def domain_validation_error_handler(
     )
 
 
-async def register_exception_handlers(app: FastAPI) -> None:
+def register_exception_handlers(app: FastAPI) -> None:
     """Registra handlers de exceção da aplicação.
 
     Parameters
     ----------
     app : FastAPI
         Aplicação que receberá os handlers.
+
+    Notes
+    -----
+    O bootstrap gera `src/routes/exception_handlers.py` com handlers para auth,
+    validação, `HTTPException` residual e `Exception` inesperada. Registre-os em
+    `create_app()` após middlewares e rotas.
     """
 
     app.add_exception_handler(DomainValidationError, domain_validation_error_handler)
