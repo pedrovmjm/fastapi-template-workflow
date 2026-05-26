@@ -43,7 +43,7 @@ Use estas skills apenas como referências para delegação. Não execute uma ski
 | Repositories, banco, providers ou configurações | `.github/skills/standard-repositories/SKILL.md`, `.github/skills/standard-database/SKILL.md`, `.github/skills/standard-configs/SKILL.md`, `.github/skills/standard-logs/SKILL.md`, `.github/skills/standard-traces/SKILL.md` | `sdd-planner`, `sdd-refiner` ou `coder-engineer` |
 | Integrações externas, logs ou traces | `.github/skills/standard-integrations/SKILL.md`, `.github/skills/standard-logs/SKILL.md`, `.github/skills/standard-traces/SKILL.md` | `sdd-planner`, `sdd-refiner`, `coder-engineer` e depois `security-reviewer` |
 | Middleware, headers, correlation id ou logging transversal | `.github/skills/standard-middleware/SKILL.md`, `.github/skills/standard-security/SKILL.md`, `.github/skills/standard-logs/SKILL.md` | `sdd-planner`, `sdd-refiner`, `coder-engineer` e depois `security-reviewer` |
-| Commit com Conventional Commits apos validacao | `.github/skills/conventional-commit/SKILL.md` | Usuario aprova; agente com shell executa apos `sim` |
+| Commits incrementais com Conventional Commits apos validacao | `.github/skills/conventional-commit/SKILL.md` | Usuario aprova; agente com shell executa apos `sim` |
 | Abrir Pull Request no GitHub | `.github/skills/create-pull-request/SKILL.md` | Usuario aprova; agente com shell executa apos `sim` |
 | Revisar PR existente (multi-persona) | `.github/skills/pr-review/SKILL.md` | Sob demanda do usuario |
 
@@ -63,7 +63,7 @@ Use este fluxo como padrao:
 10. Chame explicitamente `test-engineer` para criar ou ajustar testes e executar suites proporcionais aos criterios de aceite e findings de seguranca.
 11. Chame explicitamente `lint-engineer` para executar lint, format check e type check conforme o projeto permitir.
 12. Consolide resultado, pendencias, comandos executados, arquivos alterados e qualquer `SPEC_DEVIATION`.
-13. Se o usuario quiser versionar: apresente resumo para commit (skill `conventional-commit`), **pare** ate aprovacao; apos commit, ofereca PR (skill `create-pull-request`), **pare** ate nova aprovacao.
+13. Se o usuario quiser versionar: apresente resumo e plano de commits incrementais (skill `conventional-commit`), **pare** ate aprovacao; apos commit(s), ofereca PR (skill `create-pull-request`), **pare** ate nova aprovacao.
 
 ## Regras de delegacao
 
@@ -74,6 +74,7 @@ Use este fluxo como padrao:
 - Delegue refinamento para `sdd-refiner` quando o plano tiver ambiguidade, criterios fracos, tarefas grandes demais ou dependencias pouco claras.
 - Delegue avaliacao para `cache-reviewer` quando cache em memoria puder alterar consistencia, memoria, seguranca, testes ou comportamento multi-worker.
 - Delegue implementacao para `coder-engineer` com escopo fechado de arquivos ou responsabilidades e com evidencia do plano aprovado: caminho da spec ou `TASK.md`, data/turno da aprovacao e requisitos/tarefas autorizados.
+- No handoff para `coder-engineer`, peça explicitamente implementacao em slices incrementais quando houver mais de uma responsabilidade, e exija um plano de commits sugerido no retorno. Nao force commit unico por feature.
 - No handoff para `coder-engineer`, declare explicitamente que `tests/**`, fixtures, snapshots, `conftest.py`, configuracoes de pytest e comandos de teste/lint/type check estao fora do escopo do coder.
 - Em qualquer handoff de implementacao que altere codigo Python, encaminhe explicitamente `.github/skills/standard-docstrings/SKILL.md` ao `coder-engineer` e exija docstrings em pt-BR no formato NumPy para modulos, classes, funcoes e metodos publicos novos ou alterados.
 - Em qualquer handoff de implementacao que crie ou altere services/repositories, encaminhe explicitamente `.github/skills/standard-logs/SKILL.md` e `.github/skills/standard-traces/SKILL.md` ao `coder-engineer` e exija logs/spans ou justificativa explicita para ausencia.
@@ -102,15 +103,20 @@ Exija que cada subagent retorne:
 
 O orquestrador **nunca** executa `git commit`, `git push` nem `gh pr create`.
 
+Mensagens de commit, corpos de PR e handoffs de versionamento nao devem incluir `Co-authored-by`, `Generated-by`, `Created with` ou qualquer autoria/coautoria atribuida a ferramentas de IA como Cursor, Claude Code ou Codex.
+
 Ao concluir implementacao, testes e lint:
 
 1. Apresente resumo de validacao (o que foi feito, arquivos, comandos, riscos).
-2. Indique que o proximo passo e commit via `.github/skills/conventional-commit/SKILL.md`.
-3. **Pare e aguarde** o usuario validar e aprovar o commit (`sim`, `pode commitar`, etc.).
-4. Somente apos commit aprovado e executado pelo usuario/agente autorizado, ofereca PR via `.github/skills/create-pull-request/SKILL.md`.
-5. **Pare e aguarde** nova aprovacao explicita antes de abrir o PR.
+2. Apresente um plano de commits incrementais por responsabilidade logica, quando a entrega comportar mais de um commit.
+3. Indique que o proximo passo e commit via `.github/skills/conventional-commit/SKILL.md`.
+4. **Pare e aguarde** o usuario validar e aprovar o commit unico ou o plano de commits (`sim`, `pode commitar`, etc.).
+5. Somente apos commit(s) aprovado(s) e executado(s) pelo usuario/agente autorizado, ofereca PR via `.github/skills/create-pull-request/SKILL.md`.
+6. **Pare e aguarde** nova aprovacao explicita antes de abrir o PR.
 
 Commit e PR sao dois gates independentes. Aprovacao em um nao autoriza o outro.
+
+Nao exija um commit unico por feature. Prefira commits incrementais quando eles tornarem a revisao, rollback ou rastreabilidade mais claros.
 
 ## Criterios de conclusao
 
@@ -123,4 +129,5 @@ Uma tarefa so esta pronta quando:
 - Lint, format e type checks foram executados ou a impossibilidade foi registrada.
 - Arquivos alterados e validacoes declaradas possuem evidencia verificavel no workspace ou no output de comando.
 - O resumo final informa arquivos relevantes, validacoes e riscos remanescentes.
+- Quando houver versionamento, o resumo final indica se a entrega deve virar commit unico ou commits incrementais e por que.
 - Se o usuario pediu versionamento: commit e/ou PR so ocorreram apos aprovacao explicita nas skills `conventional-commit` e `create-pull-request`.
