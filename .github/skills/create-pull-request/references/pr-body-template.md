@@ -15,6 +15,12 @@ Use este template como referencia para montar o corpo do PR. Remova secoes que n
 - Incluido:
 - Fora do escopo:
 
+## Responsabilidade unica
+- O PR tem uma unica responsabilidade revisavel? Sim/Nao
+- Areas alteradas:
+- Por que essas areas pertencem ao mesmo PR:
+- Se nao pertencem, plano de divisao sugerido:
+
 ## Rastreabilidade
 - Spec: `.specs/features/<slug>/spec.md` ou N/A
 - Design/tasks/handoff: `.specs/features/<slug>/...` ou N/A
@@ -25,6 +31,13 @@ Use este template como referencia para montar o corpo do PR. Remova secoes que n
 - Configuracao:
 - Documentacao/skills:
 - Testes:
+
+## Mapa de escopo
+| Area | Arquivos | Motivo |
+|------|----------|--------|
+| CORS | `...` | ... |
+| Logging/tracing | `...` | ... |
+| Agents | `...` | ... |
 
 ## Impacto no template FastAPI
 | Area | Impacto | Detalhes |
@@ -67,6 +80,10 @@ Use este template como referencia para montar o corpo do PR. Remova secoes que n
 
 ## Checklist
 - [ ] O PR descreve fielmente o diff.
+- [ ] O titulo cobre todas as areas alteradas; nao reduz o escopo real.
+- [ ] O PR tem uma unica responsabilidade ou explica por que um escopo amplo e necessario.
+- [ ] Mudancas independentes foram separadas em PRs menores quando possivel.
+- [ ] O PR nao inclui `Co-authored-by`, `Generated-by`, `Created with` ou autoria atribuida a ferramentas de IA.
 - [ ] Testes/lint foram executados ou a impossibilidade foi explicada.
 - [ ] Specs/docs foram atualizadas quando o comportamento mudou.
 - [ ] `.env.example` e `src/configs/values_domains/` foram atualizados se houve nova config.

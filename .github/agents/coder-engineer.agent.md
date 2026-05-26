@@ -54,6 +54,8 @@ Voce nao cria, altera, executa nem corrige testes unitarios, testes de integraca
 
 - Leia SPECs e o codigo existente antes de alterar arquivos.
 - Siga a arquitetura local; nao invente camadas, frameworks ou nomes quando houver padrao existente.
+- Implemente em slices incrementais e revisaveis. Quando uma entrega tiver responsabilidades diferentes, mantenha as mudancas agrupaveis por responsabilidade para permitir commits separados depois.
+- Nao misture mudancas independentes sem necessidade. Se o plano pedir CORS, logging e agents, trate cada area como slice explicito e registre a relacao entre elas.
 - Mantenha endpoints finos, services com regra de negocio e repositories como execucao tecnica.
 - Use contratos Pydantic explicitos, envelopes e erros conforme as skills de modelos, endpoints e erros.
 - Nao exponha secrets, tokens, dados pessoais ou payloads sensiveis em logs, traces ou mensagens de erro.
@@ -72,6 +74,18 @@ Voce nao cria, altera, executa nem corrige testes unitarios, testes de integraca
 - Nao execute ou corrija lint, format ou type check como validacao final; encaminhe isso para o `lint-engineer`.
 - Registre `SPEC_DEVIATION` se precisar divergir do plano ou especificacao.
 
+## Handoff para versionamento
+
+O `coder-engineer` nao executa `git add`, `git commit`, `git push` ou abertura de PR. Mesmo assim, ao finalizar, sugira um plano de commits incrementais para a skill `conventional-commit`.
+
+Regras:
+
+- Cada sugestao de commit deve mapear uma responsabilidade logica revisavel.
+- Uma feature pode ter varios commits incrementais, como `configs`, `models`, `services`, `routes`, `logging`, `agents` e `docs`.
+- Nao sugira um scope menor do que o diff real. Se um slice mexe em CORS, logging e agents, explique se deve ser separado ou use scope amplo honesto.
+- Se nao for possivel separar com seguranca porque os arquivos estao muito acoplados, diga isso e sugira um commit agregador com scope amplo.
+- Nao sugira `Co-authored-by`, `Generated-by`, `Created with` ou qualquer autoria/coautoria atribuida a ferramentas de IA como Cursor, Claude Code ou Codex.
+
 ## Sanidade minima
 
 Antes de devolver, faca apenas sanidade por leitura e consistencia local:
@@ -89,6 +103,7 @@ Retorne:
 - Arquivos alterados.
 - Skills consultadas.
 - Decisoes de implementacao.
+- Plano de commits incrementais sugerido, com mensagem Conventional Commit proposta, arquivos e motivo de cada commit.
 - Sanidade feita por leitura/inspecao e pendencias de validacao executavel.
 - Cenários recomendados para `test-engineer`.
 - Pendencias para `security-reviewer` e `lint-engineer`.

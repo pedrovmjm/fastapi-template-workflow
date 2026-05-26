@@ -1,11 +1,11 @@
 ---
 name: conventional-commit
-description: Prepara e executa commits Git seguindo Conventional Commits 1.0.0, com rastreabilidade a specs/tarefas e aprovacao explicita do usuario antes de qualquer commit. Use quando o usuario pedir para commitar, registrar entrega, fechar tarefa ou finalizar implementacao com git.
+description: Prepara e executa commits Git incrementais seguindo Conventional Commits 1.0.0, com rastreabilidade a specs/tarefas e aprovacao explicita do usuario antes de qualquer commit. Use quando o usuario pedir para commitar, registrar entrega, fechar tarefa ou finalizar implementacao com git.
 ---
 
 # Conventional Commit - Commit com Convencao e Aprovacao
 
-Use esta skill para preparar e executar commits no padrao [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), **somente depois** que o usuario validar o resumo da entrega e autorizar o commit.
+Use esta skill para preparar e executar commits incrementais no padrao [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), **somente depois** que o usuario validar o resumo da entrega e autorizar o commit ou o plano de commits.
 
 Espelha o fluxo de `.github/skills/create-pull-request/SKILL.md`: primeiro validacao, depois permissao, por ultimo execucao.
 
@@ -15,12 +15,13 @@ Espelha o fluxo de `.github/skills/create-pull-request/SKILL.md`: primeiro valid
 - Testes e lint executados ou impossibilidade documentada.
 - Revisao de seguranca feita quando o escopo exigir (`security-reviewer` ou equivalente).
 - Nenhum arquivo sensivel (`.env`, credenciais, cache) deve entrar no commit.
+- A mensagem nao deve atribuir autoria a ferramentas de IA.
 
 ## Regra Critica: Nunca Commitar Sem Aprovacao
 
-1. Apresente o **resumo da entrega** e o **rascunho do commit** (mensagem completa + arquivos).
-2. Pergunte: *"Posso fazer o commit com esta mensagem e estes arquivos?"*
-3. So execute `git add` e `git commit` apos aprovacao explicita do usuario.
+1. Apresente o **resumo da entrega** e o **rascunho do commit** ou **plano de commits incrementais** (mensagem completa + arquivos por commit).
+2. Pergunte: *"Posso fazer o commit/plano de commits com estas mensagens e estes arquivos?"*
+3. So execute `git add` e `git commit` apos aprovacao explicita do usuario para o commit unico ou para o plano completo.
 4. **PARE e aguarde resposta.** Nao execute `git add`, `git commit` nem `git push` enquanto o usuario nao aprovar.
 5. Se o usuario pedir ajustes (mensagem, arquivos, escopo), atualize o rascunho e volte ao passo 2.
 
@@ -29,6 +30,21 @@ Respostas que **nao** contam como aprovacao: silencio, "depois", perguntas sem c
 Respostas que contam como aprovacao: `sim`, `pode commitar`, `aprovado`, `ok para commit`, `autorizado`.
 
 **Nunca** use `git commit --amend`, `--no-verify` ou force push, salvo pedido explicito do usuario.
+
+## Regra Critica: Sem Coautoria de Ferramentas de IA
+
+Nao inclua rodapes, trailers ou textos de autoria para ferramentas de IA em commits.
+
+Proibido:
+
+- `Co-authored-by: Cursor ...`
+- `Co-authored-by: Claude Code ...`
+- `Co-authored-by: Codex ...`
+- `Generated-by: ...`
+- `Created with ...`
+- Qualquer variacao que atribua autoria, coautoria ou geracao a assistentes/ferramentas de IA.
+
+O commit deve registrar a mudanca tecnica e sua rastreabilidade, nao a ferramenta usada para auxiliar.
 
 ## Fluxo
 
@@ -51,7 +67,39 @@ Confirme:
 - Spec ou tarefa: `.specs/features/<slug>/spec.md`, `tasks.md` ou `.specs/quick/<id>/TASK.md`.
 - IDs de requisito (`[FEAT]-01`, etc.) quando existirem.
 
-### 2. Resumo para validacao do usuario
+### 2. Classificar escopo e plano incremental
+
+Antes de propor commits, classifique o diff por responsabilidade. Cada commit deve representar uma unidade logica revisavel, mas uma feature pode e deve ser dividida em varios commits incrementais quando isso melhora revisao, rollback ou rastreabilidade.
+
+Nao force commit unico por feature. Prefira commits incrementais quando a entrega tiver etapas naturais, como:
+
+- base de configuracao;
+- contrato/modelos;
+- implementacao de service/repository;
+- endpoint/middleware;
+- observabilidade/logging/tracing;
+- documentacao;
+- testes, quando estiverem no escopo do agente responsavel.
+
+Use estes sinais para decidir se deve dividir:
+
+- Mudancas em dominios independentes, como CORS, logging e agents no mesmo diff.
+- Arquivos de configuracao sem relacao direta com o codigo alterado.
+- Documentacao ou skills misturadas com mudanca funcional sem dependencia clara.
+- Testes cobrindo comportamentos diferentes que poderiam ser revisados separadamente.
+
+Se houver responsabilidades independentes ou etapas incrementais claras, proponha commits separados e peca aprovacao para cada grupo de arquivos ou para o plano completo. Nao esconda escopo amplo em um scope estreito.
+
+Exemplos:
+
+- Correto para CORS apenas: `fix(cors): ajustar origens permitidas`
+- Correto para logging apenas: `refactor(logging): padronizar eventos de tracing`
+- Correto para agents apenas: `feat(agents): configurar tracing seguro`
+- Incorreto se altera CORS, logging e agents: `fix(cors): ajustar configuracoes`
+- Melhor quando nao der para separar: `chore(template): alinhar cors logging e agents`
+- Melhor quando der para separar: tres commits incrementais, um para `cors`, um para `logging` e um para `agents`
+
+### 3. Resumo para validacao do usuario
 
 Apresente em pt-BR (mesmo padrao visual do PR):
 
@@ -61,6 +109,8 @@ Apresente em pt-BR (mesmo padrao visual do PR):
 **Branch:** [nome]
 **Spec/tarefa:** [caminho ou N/A]
 **Requisitos/tarefas cobertos:** [lista ou N/A]
+**Responsabilidade unica:** SIM/NAO
+**Plano de commits:** [commit unico ou lista incremental de commits]
 
 ### Resumo da entrega
 - [bullet objetivo]
@@ -83,7 +133,7 @@ Apresente em pt-BR (mesmo padrao visual do PR):
 | Revisao de seguranca | SIM/NAO/N/A | [agente ou nota] |
 | Sem secrets no diff | SIM/NAO | [observacao] |
 
-### Commit proposto
+### Commit(s) proposto(s)
 
 **Mensagem:**
 ```
@@ -94,12 +144,18 @@ Apresente em pt-BR (mesmo padrao visual do PR):
 Refs: [FEAT]-01, [FEAT]-02
 ```
 
-**Aguardando sua aprovacao para fazer o commit.**
+**Quando houver multiplos commits:**
+| Ordem | Mensagem | Arquivos | Motivo |
+|-------|----------|----------|--------|
+| 1 | `...` | `...` | ... |
+| 2 | `...` | `...` | ... |
+
+**Aguardando sua aprovacao para fazer o commit ou o plano de commits.**
 ```
 
 Apos enviar o resumo, **pare**. Nao prossiga ate o usuario responder.
 
-### 3. Fazer commit (apos aprovacao)
+### 4. Fazer commit(s) (apos aprovacao)
 
 Somente quando o usuario aprovar explicitamente:
 
@@ -115,11 +171,12 @@ EOF
 git status
 ```
 
-- Inclua apenas arquivos listados e aprovados no passo 2.
+- Para multiplos commits, repita `git add <arquivos do commit N>` e `git commit ...` na ordem aprovada.
+- Inclua apenas arquivos listados e aprovados no resumo de validacao.
 - Nao commite `.env`, chaves ou artefatos fora do escopo.
-- Informe o hash do commit (`git log -1 --oneline`).
+- Informe o hash de cada commit (`git log --oneline -n <N>`).
 
-### 4. Proximo passo (opcional)
+### 5. Proximo passo (opcional)
 
 Apos commit bem-sucedido:
 
@@ -129,7 +186,7 @@ Apos commit bem-sucedido:
 
 ## Formato da mensagem (Conventional Commits)
 
-Referencia para montar o rascunho no passo 2. Detalhes em `.github/skills/spc-driven/references/implement.md`.
+Referencia para classificar o diff e montar o rascunho nos passos 2 e 3. Detalhes em `.github/skills/spc-driven/references/implement.md`.
 
 ```
 <type>(<scope>): <description>
@@ -152,15 +209,39 @@ Referencia para montar o rascunho no passo 2. Detalhes em `.github/skills/spc-dr
 | `ci` | CI/CD |
 | `chore` | Manutencao fora de src/test |
 
-**Escopo:** area em minusculas (`auth`, `clients`, `config`, nome da feature).
+### Regras obrigatorias
 
-**Descricao:** imperativo, primeira letra minuscula, sem ponto final. Teste: "Se aplicado, este commit vai _[descricao]_."
+- O header deve seguir exatamente: `<type>(<scope>): <description>` ou `<type>: <description>` quando nao houver scope claro.
+- `type` deve ser um dos tipos da tabela.
+- `scope` deve ser curto, em minusculas, sem espacos, e refletir o escopo real do diff.
+- Se o diff cruza areas independentes ou etapas incrementais claras, divida em commits ou use scope mais amplo e descricao honesta quando a separacao nao for pratica.
+- `description` deve ser em imperativo, primeira letra minuscula, sem ponto final.
+- O header inteiro deve ficar preferencialmente ate 72 caracteres.
+- Breaking change usa `!` no header e rodape `BREAKING CHANGE: ...`.
+
+**Escopo:** area em minusculas (`auth`, `cors`, `logging`, `agents`, `configs`, `template`, nome da feature).
+
+**Descricao:** teste mental: "Se aplicado, este commit vai _[descricao]_." Se a frase nao fizer sentido, reescreva.
 
 **Breaking change:** `tipo(escopo)!: descricao` + rodape `BREAKING CHANGE: ...`
 
 **Rastreabilidade:** `Refs:` no corpo com IDs de requisito ou numero da tarefa.
 
-**Uma tarefa = um commit.** Nao agrupe tarefas distintas.
+**Autoria:** nao use `Co-authored-by`, `Generated-by`, `Created with` ou notas equivalentes para ferramentas de IA como Cursor, Claude Code ou Codex.
+
+**Uma unidade logica = um commit.** Uma feature pode ter varios commits incrementais. Nao agrupe tarefas distintas, mas tambem nao force tudo em um unico commit so porque pertence a mesma feature.
+
+### Checklist de validacao da mensagem
+
+- [ ] Header segue Conventional Commits.
+- [ ] Tipo corresponde a natureza da mudanca.
+- [ ] Scope nao reduz indevidamente o escopo real.
+- [ ] Descricao e imperativa, minuscula e sem ponto final.
+- [ ] Corpo explica motivacao quando o header nao basta.
+- [ ] Rodape inclui `Refs:` quando houver spec/tarefa.
+- [ ] Nao ha `Co-authored-by`, `Generated-by`, `Created with` ou autoria atribuida a ferramenta de IA.
+- [ ] Cada commit contem uma unica responsabilidade logica.
+- [ ] Entregas maiores foram divididas em commits incrementais quando isso melhora revisao ou rollback.
 
 ## Integracao com o Workflow
 
