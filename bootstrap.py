@@ -147,6 +147,14 @@ def build_file_templates() -> list[FileTemplate]:
             SERVER__TIMEOUT_KEEP_ALIVE_SECONDS=5
             SERVER__LIMIT_CONCURRENCY=0
 
+            CORS__ENABLED=true
+            CORS__ALLOW_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173
+            CORS__ALLOW_CREDENTIALS=true
+            CORS__ALLOW_METHODS=GET,POST,PUT,PATCH,DELETE,OPTIONS,HEAD
+            CORS__ALLOW_HEADERS=Authorization,Content-Type,Accept,X-Correlation-Id,X-API-Version
+            CORS__EXPOSE_HEADERS=X-Correlation-Id,X-API-Version
+            CORS__MAX_AGE=600
+
             HTTPX_CLIENT__TIMEOUT_SECONDS=30
             HTTPX_CLIENT__CONNECT_TIMEOUT_SECONDS=10
             HTTPX_CLIENT__MAX_CONNECTIONS=100
@@ -293,6 +301,8 @@ def build_file_templates() -> list[FileTemplate]:
             )
             from src.configs.settings import Settings, get_settings
             from src.configs.sql_database import close_sql_engine, get_sql_engine
+            from fastapi.middleware.cors import CORSMiddleware
+
             from src.middlewares.api_version import ApiVersionMiddleware
             from src.middlewares.correlation_id import CorrelationIdMiddleware
             from src.observability.logging.logging import configure_logging
@@ -407,6 +417,17 @@ def build_file_templates() -> list[FileTemplate]:
                     header_name=settings.app.correlation_id_header_name,
                 )
 
+                if settings.cors.enabled:
+                    app.add_middleware(
+                        CORSMiddleware,
+                        allow_origins=settings.cors.allow_origins,
+                        allow_credentials=settings.cors.allow_credentials,
+                        allow_methods=settings.cors.allow_methods,
+                        allow_headers=settings.cors.allow_headers,
+                        expose_headers=settings.cors.expose_headers,
+                        max_age=settings.cors.max_age,
+                    )
+
 
             def _register_routes(app: FastAPI) -> None:
                 """Registra routers publicos da aplicacao.
@@ -476,6 +497,7 @@ def build_file_templates() -> list[FileTemplate]:
 
             from src.configs.values_domains.app import AppValues
             from src.configs.values_domains.auth import AuthValues
+            from src.configs.values_domains.cors import CorsValues
             from src.configs.values_domains.httpx_client import HttpxClientValues
             from src.configs.values_domains.logging import LoggingValues
             from src.configs.values_domains.mongo import MongoValues
@@ -492,6 +514,7 @@ def build_file_templates() -> list[FileTemplate]:
             _DOMAIN_COLORS = {
                 "app": "\\033[36m",
                 "server": "\\033[35m",
+                "cors": "\\033[37m",
                 "time": "\\033[32m",
                 "httpx_client": "\\033[34m",
                 "auth": "\\033[91m",
@@ -517,6 +540,8 @@ def build_file_templates() -> list[FileTemplate]:
                     Configuracoes publicas e operacionais da aplicacao.
                 server : ServerValues
                     Configuracoes operacionais do processo Uvicorn.
+                cors : CorsValues
+                    Configuracoes de CORS para browsers e clientes web.
                 time : TimeValues
                     Configuracoes de timezone usadas por respostas e agendamentos.
                 httpx_client : HttpxClientValues
@@ -548,6 +573,10 @@ def build_file_templates() -> list[FileTemplate]:
                 server: ServerValues = Field(
                     default_factory=ServerValues,
                     description="Configuracoes operacionais do processo Uvicorn.",
+                )
+                cors: CorsValues = Field(
+                    default_factory=CorsValues,
+                    description="Configuracoes de CORS para browsers e clientes web.",
                 )
                 time: TimeValues = Field(
                     default_factory=TimeValues,
@@ -1450,6 +1479,91 @@ def build_file_templates() -> list[FileTemplate]:
                     if isinstance(value, str):
                         return value.lower()
                     return value
+            ''',
+        ),
+        FileTemplate(
+            "src/configs/values_domains/cors.py",
+            '''
+            """Define valores de CORS da aplicacao."""
+
+            from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+            class CorsValues(BaseModel):
+                """Define a politica de CORS aplicada pela aplicacao."""
+
+                model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+                enabled: bool = Field(
+                    False,
+                    description="Indica se o middleware de CORS deve ser registrado.",
+                )
+                allow_origins: list[str] = Field(
+                    default_factory=lambda: [
+                        "http://localhost:3000",
+                        "http://127.0.0.1:3000",
+                        "http://localhost:5173",
+                        "http://127.0.0.1:5173",
+                    ],
+                    description="Origens explicitamente autorizadas a consumir a API.",
+                    min_length=0,
+                    max_length=50,
+                )
+                allow_credentials: bool = Field(
+                    True,
+                    description="Indica se cookies e credenciais podem ser enviados em requisicoes cross-origin.",
+                )
+                allow_methods: list[str] = Field(
+                    default_factory=lambda: [
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE",
+                        "OPTIONS",
+                        "HEAD",
+                    ],
+                    description="Metodos HTTP liberados em requisicoes cross-origin.",
+                    min_length=1,
+                    max_length=20,
+                )
+                allow_headers: list[str] = Field(
+                    default_factory=lambda: [
+                        "Authorization",
+                        "Content-Type",
+                        "Accept",
+                        "X-Correlation-Id",
+                        "X-API-Version",
+                    ],
+                    description="Headers de request liberados em preflight.",
+                    min_length=1,
+                    max_length=50,
+                )
+                expose_headers: list[str] = Field(
+                    default_factory=lambda: [
+                        "X-Correlation-Id",
+                        "X-API-Version",
+                    ],
+                    description="Headers de response expostos ao browser.",
+                    min_length=0,
+                    max_length=50,
+                )
+                max_age: int = Field(
+                    600,
+                    description="Tempo em segundos para cache de preflight no browser.",
+                    ge=0,
+                    le=86_400,
+                )
+
+                @model_validator(mode="after")
+                def validate_credentials_with_wildcard_origin(self) -> CorsValues:
+                    """Impede `*` em origens quando credenciais estao habilitadas."""
+
+                    if self.allow_credentials and "*" in self.allow_origins:
+                        raise ValueError(
+                            "CORS nao permite allow_origins='*' com allow_credentials=true."
+                        )
+                    return self
             ''',
         ),
         FileTemplate(
