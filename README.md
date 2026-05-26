@@ -258,6 +258,186 @@ As skills em `.github/skills/` documentam padroes reutilizaveis. As principais i
 5. Rode testes, lint e revisoes relevantes.
 6. Mantenha commits ou notas de execucao referenciando os requisitos quando aplicavel.
 
+## Ciclo Completo de Desenvolvimento com Agents
+
+O fluxo recomendado e sequencial. O `workflow-orchestrator` coordena as etapas, mas nao implementa codigo, nao roda comandos e nao faz commit. Ele chama um agent por vez, incorpora o resultado e so entao decide o proximo passo. Isso mantem rastreabilidade e evita que planejamento, implementacao, revisao e validacao se misturem.
+
+```text
+TAREFA RECEBIDA
+  -> TRIAGEM DE ESCOPO
+  -> SPEC / QUICK TASK
+  -> DESIGN E TASKS, quando necessario
+  -> APROVACAO DO PLANO
+  -> CODIGO
+  -> REVISAO DE SEGURANCA
+  -> TESTES
+  -> LINT / FORMAT / TYPE CHECK
+  -> RESUMO DE VALIDACAO
+  -> COMMIT COM APROVACAO
+  -> PR COM APROVACAO
+```
+
+### 1. Receber e classificar a tarefa
+
+Ao receber uma demanda, o primeiro passo e entender o tamanho real da mudanca:
+
+- **Modo rapido**: ajuste pequeno, em ate 3 arquivos, sem novo endpoint, contrato publico, entidade, tabela, repository ou service. Registre em `.specs/quick/<id>/TASK.md` quando precisar de rastro.
+- **Feature media**: comportamento claro, mas com impacto em codigo de aplicacao. Crie `.specs/features/<feature>/spec.md`.
+- **Feature grande ou complexa**: varios componentes, duvidas de dominio, banco, auth, integracoes, cache, agents ou risco relevante. Use `spec.md`, `design.md` e `tasks.md`.
+
+O agent principal desta etapa e o `sdd-planner`. Ele consulta as skills aplicaveis, identifica padroes existentes e transforma o pedido em requisitos, decisoes e criterios de aceite.
+
+### 2. Planejar antes de codificar
+
+Para mudancas nao triviais, o planejamento deve deixar claro:
+
+- objetivo e fora de escopo;
+- requisitos e criterios de aceite;
+- arquivos ou camadas provaveis;
+- skills que definem o padrao tecnico;
+- riscos de seguranca, dados, cache, logs, traces ou compatibilidade;
+- comandos esperados de validacao.
+
+Quando a feature cria contrato publico, endpoint, entidade, banco, repository ou service, a implementacao so deve comecar depois de aprovacao explicita do plano. Se houver ambiguidade, use `sdd-refiner` para revisar clareza, dependencias, tarefas atomicas e aderencia as skills.
+
+### 3. Implementar o menor slice vertical
+
+Depois da aprovacao, o `coder-engineer` implementa o menor slice vertical seguro. Ele deve:
+
+- ler a spec, design, tasks e codigo existente antes de editar;
+- seguir a arquitetura local em `routes`, `services`, `repository`, `models`, `configs`, `middlewares` e `observability`;
+- manter rotas finas, services com orquestracao de negocio e repositories com execucao tecnica;
+- usar docstrings em pt-BR no formato definido por `standard-docstrings` para APIs publicas novas ou alteradas;
+- preservar logs, traces, correlation id e protecao de dados sensiveis quando aplicavel;
+- registrar `SPEC_DEVIATION` quando precisar divergir do plano aprovado.
+
+O `coder-engineer` nao cria nem executa testes, nao roda lint e nao faz commit. Ele devolve o que mudou, quais cenarios precisam de teste e um plano sugerido de commits incrementais.
+
+### 4. Revisar seguranca antes de fechar comportamento
+
+Depois da implementacao, o `security-reviewer` verifica riscos como:
+
+- autenticacao, autorizacao, roles, grupos, tenant e posse de recurso;
+- BOLA/BFLA em rotas com ids ou acoes por recurso;
+- vazamento de secrets, tokens, dados pessoais, payloads sensiveis, stack traces ou `str(exc)`;
+- CORS, rate limiting, abuso, SSRF, injection, path traversal, uploads e chamadas externas;
+- logs e traces sem dados sensiveis;
+- riscos de LLM, agents, tools e prompt injection quando houver fluxo agentico;
+- cache em memoria com permissoes stale, dados sensiveis ou comportamento inconsistente em multi-worker.
+
+Se houver findings, o fluxo volta para correcao antes de seguir para testes finais.
+
+### 5. Testar proporcionalmente ao risco
+
+O `test-engineer` transforma criterios de aceite e findings de seguranca em testes. Ele escolhe o nivel adequado:
+
+- unitario para regras isoladas;
+- integracao para fronteiras reais, como banco, clients, repositories, rotas e DI;
+- E2E para fluxos criticos de usuario ou API.
+
+Sempre que possivel, ele executa os comandos reais do projeto, por exemplo:
+
+```bash
+python3 -m pytest
+```
+
+O resultado precisa trazer comando exato, exit code e resumo do output. Nao se declara suite aprovada sem evidencia executada.
+
+### 6. Rodar lint, format e type check
+
+Depois de testes e correcoes relevantes, o `lint-engineer` descobre os comandos configurados no projeto em `README.md`, `pyproject.toml`, `Makefile`, `tox.ini`, `.github/workflows/` ou scripts. Quando existirem, ele executa lint, format check e type check, por exemplo:
+
+```bash
+python3 -m ruff check .
+python3 -m ruff format --check .
+npm run typecheck
+```
+
+Use apenas os comandos que realmente existem no projeto alvo. Se algum check nao estiver configurado, registre a lacuna em vez de fingir validacao.
+
+### 7. Consolidar validacao
+
+Antes de versionar, consolide:
+
+- arquivos alterados;
+- requisitos ou tarefas cobertos;
+- comandos executados, exit code e resumo;
+- revisao de seguranca;
+- riscos restantes;
+- `SPEC_DEVIATION`, se houver;
+- plano de commits sugerido.
+
+Esse resumo e o gate que separa "codigo feito" de "entrega pronta para commit".
+
+### 8. Commitar com Conventional Commits
+
+Commits usam a skill `conventional-commit` e exigem aprovacao explicita do usuario. O agent deve primeiro apresentar:
+
+- branch atual;
+- spec ou tarefa relacionada;
+- arquivos que entrarao e arquivos excluidos;
+- validacoes feitas;
+- mensagem ou plano de commits.
+
+Formato recomendado:
+
+```text
+<type>(<scope>): <description>
+
+Refs: <id-da-spec-ou-requisito>
+```
+
+Exemplos:
+
+```text
+feat(auth): adicionar bootstrap de Azure AD
+fix(cors): ajustar origens permitidas
+docs(workflow): documentar ciclo de desenvolvimento
+test(health): cobrir envelope do endpoint de health
+```
+
+Quando a entrega tiver responsabilidades diferentes, prefira commits incrementais. Exemplo: um commit para configs, outro para services/routes e outro para testes ou docs. O commit so acontece depois de resposta explicita como `sim`, `pode commitar` ou `aprovado`.
+
+### 9. Abrir Pull Request
+
+PR e um gate separado do commit. Aprovacao para commitar nao autoriza abrir PR automaticamente.
+
+Use `create-pull-request` para:
+
+- revisar branch, base e commits incluidos;
+- verificar se a branch tem responsabilidade unica;
+- montar titulo fiel ao diff;
+- preencher corpo com resumo, validacoes, impacto, riscos e rastreabilidade;
+- pedir aprovacao explicita antes de `git push` e `gh pr create`.
+
+Se a branch mistura responsabilidades independentes, recomende dividir em PRs menores. Se o time decidir manter um PR unico, o titulo e o corpo devem declarar o escopo completo.
+
+### 10. Revisar PR
+
+Depois do PR aberto, use `pr-review` quando quiser uma revisao multi-persona. Ela pode avaliar, por exemplo:
+
+- impacto de backend;
+- riscos de seguranca;
+- qualidade de testes;
+- riscos de operacao ou DevOps;
+- prontidao para merge.
+
+### Mapa Rapido de Agents
+
+| Momento | Agent/skill | Responsabilidade |
+| --- | --- | --- |
+| Coordenacao geral | `workflow-orchestrator` | Sequenciar etapas e handoffs, sem editar ou executar comandos. |
+| Planejamento | `sdd-planner` | Criar spec, design, tarefas e criterios de aceite. |
+| Refinamento | `sdd-refiner` | Revisar clareza, riscos, dependencias e rastreabilidade. |
+| Implementacao | `coder-engineer` | Alterar codigo e docs do slice aprovado. |
+| Seguranca | `security-reviewer` | Auditar auth, dados sensiveis, logs, traces, abuso e LLM/agents. |
+| Testes | `test-engineer` | Criar, ajustar e executar testes proporcionais ao risco. |
+| Qualidade estatica | `lint-engineer` | Executar lint, format check e type check. |
+| Cache | `cache-reviewer` | Avaliar TTL, invalidacao, memoria, multi-worker e testes. |
+| Commit | `conventional-commit` | Preparar commits incrementais com aprovacao explicita. |
+| Pull Request | `create-pull-request` | Preparar e abrir PR com aprovacao explicita. |
+| Revisao de PR | `pr-review` | Revisar PR por perfis especializados. |
+
 Exemplo de pedido para agent:
 
 ```text
