@@ -98,7 +98,18 @@ O titulo do PR nunca deve usar um scope menor do que o diff. Se a branch altera 
 
 ### 3. Montar rascunho com template
 
-Use `references/pr-body-template.md` como referencia de corpo. Inclua as secoes relevantes e remova secoes vazias ou marcadas como N/A quando nao agregarem valor.
+Use `references/pr-body-template.md` como referencia de corpo. **Nunca abra PR com corpo reduzido.**
+
+Secoes obrigatorias no corpo publicado:
+
+- `## Resumo`
+- `## Contexto`
+- `## Escopo`
+- `## Responsabilidade unica`
+- `## Validacoes` com tabela completa (`Check`, `Status`, `Comando/Detalhes`)
+- `## Checklist`
+
+Secoes opcionais: remova apenas quando forem claramente N/A para o diff, mas **nao omita `## Validacoes`**.
 
 Pontos que devem ser considerados no rascunho:
 
@@ -107,7 +118,8 @@ Pontos que devem ser considerados no rascunho:
 - Sem coautoria, assinatura ou nota de geracao por ferramentas de IA.
 - Rastreabilidade com `.specs/features/<slug>/` quando existir.
 - Impacto em API, contratos `data/meta/links`, errors `errors[]`, settings, env vars, banco, observabilidade e seguranca.
-- Validacoes executadas com comandos concretos.
+- Validacoes executadas com comandos concretos e status real (`PASS`, `FAIL` ou `N/A` com justificativa).
+- A secao `## Validacoes` do PR publicado deve espelhar a tabela do template, nao um resumo parcial.
 - Riscos residuais e follow-ups, quando houver.
 - Como o reviewer deve validar manualmente, se aplicavel.
 
@@ -140,11 +152,14 @@ Pontos que devem ser considerados no rascunho:
 | ... | ... | ... |
 
 ### Validacoes
-| Check | Status |
-|-------|--------|
-| Testes | ... |
-| Lint/type | ... |
-| Revisao de seguranca | ... |
+| Check | Status | Comando/Detalhes |
+|-------|--------|------------------|
+| Testes | PASS/FAIL/N/A | comando executado |
+| Lint | PASS/FAIL/N/A | comando executado |
+| Format | PASS/FAIL/N/A | comando executado |
+| Type check | PASS/FAIL/N/A | comando executado |
+| Build/bootstrap | PASS/FAIL/N/A | comando executado |
+| Sanitizacao commit/PR | PASS/FAIL | `scripts/sanitize-ai-attribution.sh` |
 
 ### PR proposto
 
@@ -212,11 +227,11 @@ Se o usuario quiser revisao multi-persona do PR criado, use `.github/skills/pr-r
 
 Leia `references/pr-body-template.md` quando precisar montar ou revisar o corpo do PR.
 
-Adapte o template ao tamanho da entrega:
+Adapte o template ao tamanho da entrega, mas **mantenha sempre `## Validacoes` com tabela completa**:
 
-- PR pequeno: manter `Resumo`, `Validacoes`, `Rastreabilidade` e `Riscos`.
+- PR pequeno: manter `Resumo`, `Contexto`, `Escopo`, `Validacoes`, `Checklist`.
 - PR com API/config/banco/seguranca: manter tambem as secoes de impacto especificas.
-- PR de documentacao/skills: manter foco em contexto, arquivos afetados e validacao textual.
+- PR de documentacao/skills: manter foco em contexto, arquivos afetados e validacao textual com comandos reais.
 
 ## Integracao com o Workflow
 
