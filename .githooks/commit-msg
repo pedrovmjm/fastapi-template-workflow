@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+sanitizer="${repo_root}/.github/skills/conventional-commit/scripts/sanitize-ai-attribution.sh"
+message_file="${1:?caminho da mensagem de commit ausente}"
+
+if [[ ! -x "$sanitizer" ]]; then
+  echo "commit-msg: sanitizer ausente ou sem permissao: ${sanitizer}" >&2
+  exit 1
+fi
+
+"$sanitizer" --write "$message_file"
