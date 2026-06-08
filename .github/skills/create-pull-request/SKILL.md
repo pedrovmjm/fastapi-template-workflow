@@ -1,6 +1,6 @@
 ---
 name: create-pull-request
-description: Cria pull request no GitHub com gh CLI apos validar responsabilidade unica, titulo fiel ao diff, rascunho baseado em template e aprovacao explicita do usuario. Use quando o usuario pedir para abrir PR, criar pull request ou publicar branch apos commits aprovados.
+description: Cria pull request no GitHub com gh CLI apos validar responsabilidade unica, sanitizar autoria de IA no titulo e corpo, titulo fiel ao diff, rascunho baseado em template e aprovacao explicita do usuario. Use quando o usuario pedir para abrir PR, criar pull request ou publicar branch apos commits aprovados.
 ---
 
 # Create Pull Request - Abrir PR com Aprovacao
@@ -40,6 +40,14 @@ Proibido:
 - Qualquer mencao equivalente que atribua autoria ou coautoria a assistentes/ferramentas de IA.
 
 O PR deve descrever escopo, validacoes, riscos e rastreabilidade da mudanca, nao a ferramenta usada para auxiliar.
+
+## Scripts da Skill
+
+| Momento | Script obrigatorio |
+| --- | --- |
+| Imediatamente antes de `gh pr create` | `../conventional-commit/scripts/sanitize-ai-attribution.sh` |
+
+**Execute** o script acima sobre titulo e corpo aprovados. So prossiga para `gh pr create` quando o script retornar `APTO_PARA_PUBLICAR=sim` em stderr e exit code `0`.
 
 ## Fluxo
 
@@ -144,21 +152,37 @@ Pontos que devem ser considerados no rascunho:
 
 Apos enviar o resumo, **pare**. Nao prossiga ate o usuario responder.
 
-### 5. Criar PR (apos aprovacao)
+### 5. Executar script de sanitizacao (apos aprovacao, antes do PR)
 
 Somente quando o usuario aprovar explicitamente:
+
+1. Grave o corpo aprovado em `/tmp/pr-body.txt`.
+2. **Execute** o script da skill:
+
+```bash
+.github/skills/conventional-commit/scripts/sanitize-ai-attribution.sh \
+  --title "titulo-aprovado" /tmp/pr-body.txt > /tmp/pr-body.sanitized.txt
+```
+
+3. Confirme `APTO_PARA_PUBLICAR=sim` no stderr e exit code `0`.
+4. Separe a primeira linha sanitizada como titulo e o restante como corpo do PR.
+
+### 6. Criar PR
 
 ```bash
 git push -u origin HEAD
 
-gh pr create --base main --head "{branch}" --title "titulo" --body-file /tmp/pr-body.txt
+PR_TITLE="$(head -n 1 /tmp/pr-body.sanitized.txt)"
+tail -n +2 /tmp/pr-body.sanitized.txt > /tmp/pr-body.final.txt
+
+gh pr create --base main --head "{branch}" --title "$PR_TITLE" --body-file /tmp/pr-body.final.txt
 ```
 
 Retorne a **URL do PR** ao usuario.
 
-Antes de executar, grave o corpo aprovado em `/tmp/pr-body.txt` ou outro arquivo temporario equivalente. Se a base correta for `master` ou outra branch, ajuste `--base`.
+Se o titulo ja estiver separado do corpo, execute o script apenas no arquivo do corpo e sanitize o titulo manualmente com a mesma regra do script. Se a base correta for `master` ou outra branch, ajuste `--base`.
 
-### 6. Revisao pos-criacao (opcional)
+### 7. Revisao pos-criacao (opcional)
 
 Se o usuario quiser revisao multi-persona do PR criado, use `.github/skills/pr-review/SKILL.md` com a URL do PR.
 

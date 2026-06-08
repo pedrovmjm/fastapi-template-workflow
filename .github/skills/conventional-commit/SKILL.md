@@ -1,6 +1,6 @@
 ---
 name: conventional-commit
-description: Prepara e executa commits Git incrementais seguindo Conventional Commits 1.0.0, com rastreabilidade a specs/tarefas e aprovacao explicita do usuario antes de qualquer commit. Use quando o usuario pedir para commitar, registrar entrega, fechar tarefa ou finalizar implementacao com git.
+description: Prepara e executa commits Git incrementais seguindo Conventional Commits 1.0.0, sanitiza autoria de IA na mensagem, com rastreabilidade a specs/tarefas e aprovacao explicita do usuario antes de qualquer commit. Use quando o usuario pedir para commitar, registrar entrega, fechar tarefa ou finalizar implementacao com git.
 ---
 
 # Conventional Commit - Commit com Convencao e Aprovacao
@@ -45,6 +45,14 @@ Proibido:
 - Qualquer variacao que atribua autoria, coautoria ou geracao a assistentes/ferramentas de IA.
 
 O commit deve registrar a mudanca tecnica e sua rastreabilidade, nao a ferramenta usada para auxiliar.
+
+## Scripts da Skill
+
+| Momento | Script obrigatorio |
+| --- | --- |
+| Imediatamente antes de `git commit` | `scripts/sanitize-ai-attribution.sh` |
+
+**Execute** o script acima sobre a mensagem aprovada. So prossiga para `git commit` quando o script retornar `APTO_PARA_PUBLICAR=sim` em stderr e exit code `0`.
 
 ## Fluxo
 
@@ -155,28 +163,36 @@ Refs: [FEAT]-01, [FEAT]-02
 
 Apos enviar o resumo, **pare**. Nao prossiga ate o usuario responder.
 
-### 4. Fazer commit(s) (apos aprovacao)
+### 4. Executar script de sanitizacao (apos aprovacao, antes do commit)
 
 Somente quando o usuario aprovar explicitamente:
 
+1. Grave a mensagem aprovada em um arquivo temporario, por exemplo `/tmp/commit-msg.txt`.
+2. **Execute** o script da skill:
+
+```bash
+.github/skills/conventional-commit/scripts/sanitize-ai-attribution.sh /tmp/commit-msg.txt \
+  > /tmp/commit-msg.sanitized.txt
+```
+
+3. Confirme `APTO_PARA_PUBLICAR=sim` no stderr e exit code `0`.
+4. Use somente o conteudo de `/tmp/commit-msg.sanitized.txt` no commit.
+
+### 5. Fazer commit(s)
+
 ```bash
 git add <arquivos explicitamente aprovados>
-git commit -m "$(cat <<'EOF'
-<type>(<scope>): <description>
-
-Refs: [FEAT]-01
-
-EOF
-)"
+git commit -F /tmp/commit-msg.sanitized.txt
 git status
 ```
 
-- Para multiplos commits, repita `git add <arquivos do commit N>` e `git commit ...` na ordem aprovada.
+- Use `git commit -F` com o arquivo sanitizado pelo script da skill.
+- Para multiplos commits, repita sanitizacao, `git add <arquivos do commit N>` e `git commit ...` na ordem aprovada.
 - Inclua apenas arquivos listados e aprovados no resumo de validacao.
 - Nao commite `.env`, chaves ou artefatos fora do escopo.
 - Informe o hash de cada commit (`git log --oneline -n <N>`).
 
-### 5. Proximo passo (opcional)
+### 6. Proximo passo (opcional)
 
 Apos commit bem-sucedido:
 
@@ -239,7 +255,9 @@ Referencia para classificar o diff e montar o rascunho nos passos 2 e 3. Detalhe
 - [ ] Descricao e imperativa, minuscula e sem ponto final.
 - [ ] Corpo explica motivacao quando o header nao basta.
 - [ ] Rodape inclui `Refs:` quando houver spec/tarefa.
+- [ ] O script `scripts/sanitize-ai-attribution.sh` foi executado e retornou `APTO_PARA_PUBLICAR=sim`.
 - [ ] Nao ha `Co-authored-by`, `Generated-by`, `Created with` ou autoria atribuida a ferramenta de IA.
+- [ ] O comando final de commit nao usa `--trailer` para autoria de IA.
 - [ ] Cada commit contem uma unica responsabilidade logica.
 - [ ] Entregas maiores foram divididas em commits incrementais quando isso melhora revisao ou rollback.
 

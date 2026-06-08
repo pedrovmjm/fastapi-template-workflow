@@ -83,6 +83,7 @@ Use este template como referencia para montar o corpo do PR. Remova secoes que n
 - [ ] O titulo cobre todas as areas alteradas; nao reduz o escopo real.
 - [ ] O PR tem uma unica responsabilidade ou explica por que um escopo amplo e necessario.
 - [ ] Mudancas independentes foram separadas em PRs menores quando possivel.
+- [ ] O script `conventional-commit/scripts/sanitize-ai-attribution.sh` foi executado e retornou `APTO_PARA_PUBLICAR=sim`.
 - [ ] O PR nao inclui `Co-authored-by`, `Generated-by`, `Created with` ou autoria atribuida a ferramentas de IA.
 - [ ] Testes/lint foram executados ou a impossibilidade foi explicada.
 - [ ] Specs/docs foram atualizadas quando o comportamento mudou.
