@@ -28,7 +28,7 @@ Antes de alterar codigo, o agent executor deve consultar as skills relevantes em
 
 Use `.github/skills/spc-driven/SKILL.md` para dimensionar o fluxo: rapido, medio, grande ou complexo. Para mudancas pequenas, condense o processo, mas mantenha a ordem codigo -> seguranca -> testes -> lint quando houver impacto real.
 
-Use `.github/skills/in-memory-cache/SKILL.md` quando a tarefa mencionar cache em memoria, cache local, memoizacao, TTL, LRU ou reducao de chamadas repetidas. Para avaliacoes pontuais, use tambem os prompts em `.github/prompts/avaliar-cache-memoria.prompt.md` e `.github/prompts/revisar-cache-memoria.prompt.md`.
+Use `.github/skills/in-memory-cache/SKILL.md` quando a tarefa mencionar cache em memoria, cache local, memoizacao, TTL, LRU ou reducao de chamadas repetidas.
 
 Use `.github/skills/fastapi-best-practices/references/authentication-authorization.md` quando a tarefa envolver endpoint autenticado, Azure AD/Microsoft Entra ID, autorizacao por owner/tenant/grupo/role ou repositories filtrados por usuario.
 

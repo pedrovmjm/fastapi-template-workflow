@@ -9,8 +9,9 @@ A ideia do repositorio e servir como ponto de partida para times que querem cria
 - **Workflow SDD**: organizacao de trabalho por especificacao, design, tarefas e execucao.
 - **Agents especializados**: orquestrador, planner, coder, revisores de seguranca, testes, lint e cache.
 - **Skills reutilizaveis**: padroes para endpoints, services, repositories, configs, logs, traces, testes, seguranca, banco de dados, cache em memoria e mais.
-- **Bootstrap FastAPI**: script para gerar uma aplicacao inicial com configuracao, observabilidade, middlewares, rotas, repositories e testes.
-- **Estrutura de projeto padronizada**: separacao clara entre `configs`, `routes`, `services`, `repositories`, `models`, `middlewares` e `observability`.
+- **Bootstrap FastAPI**: script para gerar uma aplicacao inicial com configuracao, CORS, observabilidade, middlewares, rotas, `repository`, seguranca e testes.
+- **Estrutura de projeto padronizada**: separacao clara entre `configs`, `routes`, `services`, `repository`, `models`, `middlewares`, `security` e `observability`.
+- **Git hooks**: hook `commit-msg` para sanitizar autoria de IA em mensagens de commit.
 - **Documentacao em pt-BR**: regras, convencoes e orientacoes escritas para uso no dia a dia do time.
 
 ## Quando Usar
@@ -42,7 +43,7 @@ O arquivo [bootstrap.py](bootstrap.py) e o ponto de entrada para criar a estrutu
 ### Visualizar o Que Sera Criado
 
 ```bash
-python bootstrap.py --name meu-projeto --domain vendas --dry-run
+python3 bootstrap.py --name meu-projeto --domain vendas --dry-run
 ```
 
 O `--dry-run` mostra os arquivos que seriam gerados sem escrever no disco.
@@ -50,25 +51,25 @@ O `--dry-run` mostra os arquivos que seriam gerados sem escrever no disco.
 ### Criar a Estrutura no Diretorio Atual
 
 ```bash
-python bootstrap.py --name meu-projeto --domain vendas
+python3 bootstrap.py --name meu-projeto --domain vendas
 ```
 
 ### Criar em Outro Diretorio
 
 ```bash
-python bootstrap.py --name meu-projeto --domain vendas --target ../meu-projeto
+python3 bootstrap.py --name meu-projeto --domain vendas --target ../meu-projeto
 ```
 
 ### Definir a Versao Inicial da API
 
 ```bash
-python bootstrap.py --name meu-projeto --domain vendas --api-version v1
+python3 bootstrap.py --name meu-projeto --domain vendas --api-version v1
 ```
 
 Tambem e aceito passar apenas o numero:
 
 ```bash
-python bootstrap.py --api-version 2
+python3 bootstrap.py --api-version 2
 ```
 
 Nesse caso o bootstrap normaliza para `v2`.
@@ -76,7 +77,7 @@ Nesse caso o bootstrap normaliza para `v2`.
 ### Sobrescrever Arquivos Existentes
 
 ```bash
-python bootstrap.py --force
+python3 bootstrap.py --force
 ```
 
 Sem `--force`, arquivos existentes sao preservados e aparecem como `skip` na saida.
@@ -111,11 +112,22 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 │   │   ├── sql_database.py
 │   │   ├── object_storage.py
 │   │   └── values_domains/
+│   │       ├── app.py
+│   │       ├── auth.py
+│   │       ├── cors.py
+│   │       ├── logging.py
+│   │       ├── mongo.py
+│   │       ├── object_storage.py
+│   │       ├── server.py
+│   │       ├── sql_database.py
+│   │       ├── telemetry.py
+│   │       └── time.py
 │   ├── middlewares/
 │   │   ├── api_version.py
 │   │   └── correlation_id.py
 │   ├── models/
 │   │   ├── auth/
+│   │   ├── errors/
 │   │   ├── health/
 │   │   │   └── response/
 │   │   └── utils/
@@ -127,46 +139,55 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 │   │   ├── microsoft_graph/
 │   │   └── object_storage/
 │   ├── routes/
+│   │   ├── exception_handlers.py
 │   │   └── health/
 │   ├── security/
+│   │   ├── azure_ad.py
+│   │   ├── dependencies.py
+│   │   └── permissions.py
 │   └── services/
 │       ├── auth/
 │       └── microsoft_graph/
 └── tests/
+    └── __init__.py
 ```
 
 ### Principais Pecas Geradas
 
-- `pyproject.toml`: dependencias base para FastAPI, Uvicorn, Pydantic, HTTPX, PyJWT, OpenTelemetry, MongoDB, SQLAlchemy, SQLite async e extras para object storage.
-- `.env.example`: variaveis organizadas por dominio, como `APP__`, `SERVER__`, `AUTH__`, `LOGGING__`, `TELEMETRY__`, `MONGO__`, `SQL_DATABASE__` e `OBJECT_STORAGE__`.
+- `pyproject.toml`: dependencias base para FastAPI, Uvicorn, Pydantic, HTTPX, PyJWT, OpenTelemetry, MongoDB, SQLAlchemy, SQLite async e extras opcionais para object storage (`object-storage-azure`, `object-storage-aws`, `object-storage`).
+- `.env.example`: variaveis organizadas por dominio, como `APP__`, `SERVER__`, `CORS__`, `AUTH__`, `LOGGING__`, `TELEMETRY__`, `MONGO__`, `SQL_DATABASE__` e `OBJECT_STORAGE__`.
 - `start.py`: entrypoint operacional que carrega settings, configura logs e inicia o Uvicorn.
-- `src/main.py`: composicao da aplicacao FastAPI, lifespan, recursos globais, middlewares, rotas e telemetry.
+- `src/main.py`: composicao da aplicacao FastAPI, lifespan, recursos globais, middlewares (incluindo CORS configuravel), rotas, exception handlers e telemetry.
 - `src/configs/`: carregamento de settings, clients e providers compartilhados.
-- `src/configs/values_domains/`: modelos Pydantic separados por dominio de configuracao.
+- `src/configs/values_domains/`: modelos Pydantic separados por dominio de configuracao, incluindo `cors.py` com validacao de `allow_origins` e `allow_credentials`.
 - `src/middlewares/api_version.py`: resolucao da versao da API por path (`/api-internal/vN`), com header como complemento.
+- `src/middlewares/correlation_id.py`: propagacao e exposicao do `X-Correlation-Id`.
 - `src/models/auth/`: contratos internos para usuario autenticado, grupos e superior direto.
-- `src/models/<dominio>/{requests,response,persistence,commons}/`: contratos Pydantic organizados por intenção dentro de cada domínio.
-- `src/models/utils/`: contratos compartilhados para `meta` e `links` em respostas `GET`, com helper assíncrono para montar o contexto dinâmico.
+- `src/models/errors/`: contrato padrao de resposta de erro da API.
+- `src/models/<dominio>/{requests,response,persistence,commons}/`: contratos Pydantic organizados por intencao dentro de cada dominio (a serem criados conforme novas features).
+- `src/models/utils/`: contratos compartilhados para `meta` e `links` em respostas `GET`, com helper assincrono para montar o contexto dinamico.
+- `src/routes/exception_handlers.py`: mapeamento centralizado de excecoes para o contrato de erro.
 - `src/routes/health/`: endpoint operacional isolado `/api-internal/v1/health` que retorna apenas `{"status": "ok"}`.
 - `src/security/`: validacao JWT Azure AD, dependencies FastAPI e helpers de scopes, roles e grupos.
-- `src/observability/`: logging estruturado e setup de tracing OpenTelemetry.
+- `src/observability/`: logging estruturado e setup de tracing OpenTelemetry (exporters, instrumentations, streaming).
 - `src/repository/microsoft_graph/`: chamadas tecnicas ao Microsoft Graph para perfil, manager, grupos diretos e foto.
 - `src/repository/object_storage/`: interface, factory e implementacoes para Azure Blob e AWS S3.
-- `src/services/`: camada reservada para regras de negocio, auth e enriquecimento opcional via Microsoft Graph.
-- `tests/`: ponto inicial para a suite de testes.
+- `src/services/auth/`: contexto de usuario autenticado e excecoes de auth.
+- `src/services/microsoft_graph/`: enriquecimento opcional de usuario via Graph com fallback seguro.
+- `tests/__init__.py`: ponto inicial para a suite de testes (sem casos prontos).
 
 ## Depois de Gerar o Projeto
 
 Um fluxo inicial comum e:
 
 ```bash
-python bootstrap.py --name minha-api --domain meu-dominio --target ../minha-api
+python3 bootstrap.py --name minha-api --domain meu-dominio --target ../minha-api
 cd ../minha-api
 cp .env.example .env
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
-python start.py
+python3 start.py
 ```
 
 Com a aplicacao rodando, acesse:
@@ -185,7 +206,7 @@ SPECIFY -> DESIGN -> TASKS -> EXECUTE
 
 Nem toda demanda precisa passar por todas as fases. Bugs simples e ajustes pequenos podem usar modo rapido; features maiores devem ter especificacao, desenho tecnico e tarefas atomicas.
 
-A estrutura esperada de specs e:
+Ao adotar o SDD em um projeto gerado ou neste template, crie a pasta `.specs/` com esta estrutura:
 
 ```text
 .specs/
@@ -213,6 +234,8 @@ A estrutura esperada de specs e:
         └── SUMMARY.md
 ```
 
+Este repositorio de template ainda nao inclui `.specs/` preenchido; a pasta e criada conforme o time passa a usar o fluxo SDD.
+
 ## Agents
 
 Os agents em `.github/agents/` orientam a execucao do workflow:
@@ -231,12 +254,13 @@ Os agents em `.github/agents/` orientam a execucao do workflow:
 As skills em `.github/skills/` documentam padroes reutilizaveis. As principais incluem:
 
 - `spc-driven`: workflow SDD e referencias para specify, design, tasks, implementacao e handoff.
+- `domain`: fronteiras entre dominio, transporte HTTP, persistencia e configuracao.
 - `fastapi-best-practices`: composicao FastAPI, dependency injection, auth/autorizacao, async e tratamento de erros.
 - `standard-configs`: settings, values domains e providers.
 - `standard-endpoints`: routers, status codes, query params e documentacao de endpoints.
 - `standard-services`: padroes para camada de service.
 - `standard-repositories`: padroes para repositories e execucao de queries/blob/openai.
-- `standard-data-models`: contratos de request/response e modelos de persistencia.
+- `standard-data-models`: contratos de request/response, modelos de persistencia e envelope Open Finance.
 - `standard-database`: selecao de banco, SQL, NoSQL, migrations e indexes.
 - `standard-integrations`: HTTP clients, webhooks, resiliencia e observabilidade.
 - `standard-logs`: eventos de log, correlacao e dados sensiveis.
@@ -250,6 +274,9 @@ As skills em `.github/skills/` documentam padroes reutilizaveis. As principais i
 - `in-memory-cache`: decisao, implementacao e revisao de cache local.
 - `processing-interfaces`: interfaces para processamento e composicao por DI.
 - `conversation-conventions`: atualizacao de convencoes a partir de feedback da conversa.
+- `conventional-commit`: commits incrementais com Conventional Commits, sanitizacao de autoria de IA e aprovacao explicita.
+- `create-pull-request`: preparacao e abertura de PR com aprovacao explicita.
+- `pr-review`: revisao multi-persona de pull requests.
 
 ## Como Evoluir Uma Feature
 
@@ -458,17 +485,32 @@ Para tarefas menores:
 .
 ├── README.md
 ├── bootstrap.py
+├── .githooks/
+│   └── commit-msg
 ├── .github/
 │   ├── agents/
 │   ├── skills/
-│   ├── prompts/
+│   │   └── conventional-commit/
+│   │       └── scripts/
+│   │           ├── sanitize-ai-attribution.sh
+│   │           └── setup-git-hooks.sh
 │   └── copilot-instructions.md
-└── .specs/
-    ├── project/
-    ├── codebase/
-    ├── features/
-    └── quick/
+└── .specs/   # criada ao adotar o fluxo SDD; nao vem preenchida no clone
 ```
+
+## Git Hooks e Conventional Commits
+
+Este repositorio inclui um hook `commit-msg` em `.githooks/` que remove trailers de autoria de ferramentas de IA das mensagens de commit.
+
+Para ativar os hooks apos clonar:
+
+```bash
+.github/skills/conventional-commit/scripts/setup-git-hooks.sh
+```
+
+O script configura `core.hooksPath` para `.githooks` e garante permissao de execucao nos scripts da skill `conventional-commit`.
+
+Antes de commitar, use a skill `conventional-commit` para preparar a mensagem e sanitizar autoria de IA com `sanitize-ai-attribution.sh`.
 
 ## Boas Praticas Esperadas
 
@@ -484,7 +526,8 @@ Essas praticas sao recomendacoes iniciais. Elas existem para reduzir atrito, nao
 
 ## Proximos Passos
 
-1. Execute `python bootstrap.py --dry-run` para ver a estrutura gerada.
-2. Crie uma aplicacao em um diretorio alvo com `python bootstrap.py --target ../minha-api`.
-3. Leia `.github/skills/spc-driven/SKILL.md` para entender o fluxo SDD.
-4. Use os agents e skills como guia para implementar a primeira feature real.
+1. Execute `python3 bootstrap.py --dry-run` para ver a estrutura gerada.
+2. Crie uma aplicacao em um diretorio alvo com `python3 bootstrap.py --target ../minha-api`.
+3. Configure os git hooks com `.github/skills/conventional-commit/scripts/setup-git-hooks.sh`.
+4. Leia `.github/skills/spc-driven/SKILL.md` para entender o fluxo SDD.
+5. Use os agents e skills como guia para implementar a primeira feature real.
