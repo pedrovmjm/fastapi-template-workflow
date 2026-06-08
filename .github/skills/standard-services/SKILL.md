@@ -60,7 +60,7 @@ import logging
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
-from src.models.users.user_response import UserResponse
+from src.models.users.response.user_response import UserResponse
 from src.repository.users.user_repository import UserRepository
 
 

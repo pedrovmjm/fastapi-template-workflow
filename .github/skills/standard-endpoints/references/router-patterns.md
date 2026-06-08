@@ -20,8 +20,8 @@ import logging
 from fastapi import APIRouter, Depends, Request, status
 from opentelemetry import trace
 
-from src.models.users.user_create_request import UserCreateRequest
-from src.models.users.user_response import UserEnvelopeResponse
+from src.models.users.requests.user_create_request import UserCreateRequest
+from src.models.users.response.user_response import UserCreatedResponse
 from src.services.users.user_service import UserService
 
 router = APIRouter(tags=["users"])
@@ -31,19 +31,19 @@ tracer = trace.get_tracer("app.routes.users")
 
 @router.post(
     "/users",
-    response_model=UserEnvelopeResponse,
+    response_model=UserCreatedResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_user(
     request: Request,
     payload: UserCreateRequest,
     service: UserService = Depends(),
-) -> UserEnvelopeResponse:
+) -> UserCreatedResponse:
     """Cria um usuário ativo a partir dos dados públicos recebidos.
 
     Este endpoint inicia o ciclo de vida de uma conta de usuário. A rota recebe
-    o contrato HTTP, delega regras de negócio para o service e devolve o
-    envelope público criado.
+    o contrato HTTP, delega regras de negócio para o service e devolve apenas
+    o recurso criado em `data`, sem `meta` nem `links`.
     """
 
     correlation_id = getattr(request.state, "correlation_id", None)
@@ -75,5 +75,5 @@ async def create_user(
                 "correlation_id": correlation_id,
             },
         )
-        return UserEnvelopeResponse(data=user)
+        return UserCreatedResponse(data=user)
 ```

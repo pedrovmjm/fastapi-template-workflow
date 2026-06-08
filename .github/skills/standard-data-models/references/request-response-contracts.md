@@ -2,17 +2,26 @@
 
 Use modelos diferentes para entrada e saída. Requests expressam intenção do cliente. Responses expressam contrato público da API.
 
+## Organização por Subpasta
+
+| Subpasta | Arquivos | Exemplo de import |
+| --- | --- | --- |
+| `requests/` | `*_request.py` | `src.models.users.requests.user_create_request` |
+| `response/` | `*_response.py` | `src.models.users.response.user_response` |
+| `commons/` | tipos compartilhados do domínio | `src.models.users.commons.user_status` |
+
 ## Nomenclatura
 
 - `UserCreateRequest`: entrada para criação.
 - `UserUpdateRequest`: entrada para atualização total ou parcial quando definido.
 - `UserResponse`: saída pública de um recurso.
+- `UserEnvelopeResponse`: envelope de leitura com `data`, `meta` e `links` para `GET`.
+- `UserCreatedResponse`: envelope de mutação com apenas `data` para `POST`.
 
-Separe arquivos/domínios apenas por intenção HTTP:
+Separe arquivos por intenção HTTP dentro das subpastas corretas:
 
-- requests ficam em arquivos `*_request.py`;
-- responses ficam em arquivos `*_response.py`;
-- envelopes, listas e paginação que pertencem a response ficam no mesmo arquivo de response do recurso, por exemplo `user_response.py`;
+- requests ficam em `requests/*_request.py`;
+- responses, envelopes de `GET` e envelopes de mutação ficam em `response/*_response.py`;
 - não crie arquivos/domínios ou nomes públicos separados como `data_wrapper_user_response.py`, `DataWrapperUserResponse`, `user_list_response.py` ou `UserListResponse`.
 
 ## Request de Criação
@@ -105,6 +114,7 @@ class UserResponse(BaseModel):
 - Modelos de persistência não devem ser retornados diretamente por endpoint.
 - Um service pode montar `UserResponse`, mas não deve montar `JSONResponse`.
 - Um endpoint pode envelopar dados, mas não deve transformar entidade complexa manualmente.
-- Quando o endpoint precisar de envelope ou coleção paginada, o modelo continua pertencendo ao domínio de response e deve ficar no arquivo `*_response.py` do recurso.
+- Envelopes de `GET` ficam em `response/*_response.py` e incluem `data`, `meta` e `links`.
+- Envelopes de `POST`, `PUT` e `PATCH` ficam em `response/*_response.py` e incluem apenas `data`.
 - Prefira nomes públicos terminados em `Response`, sem codificar `DataWrapper` ou `List` no nome do contrato.
-- Mantenha contratos do domínio em `src/models/<dominio>/`; use `src/models/utils/` apenas para helpers compartilhados como `meta` e `links`.
+- Mantenha contratos do domínio em `src/models/<dominio>/{requests,response}/`; use `src/models/utils/` apenas para helpers compartilhados como `meta` e `links`.

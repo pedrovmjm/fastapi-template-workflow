@@ -11,8 +11,8 @@ src/
 ├── middlewares/
 ├── models/
 │   ├── health/
-│      └── health_response.py
-│      └── health_request.py
+│   │   └── response/
+│   │       └── health_response.py
 ├── db/
 ├── routes/
 │   ├── health/

@@ -4,7 +4,7 @@ Use status codes de forma previsível para reduzir ambiguidade no contrato da AP
 
 ## Regras
 
-- `POST` de criação retorna `201 Created`.
+- `POST` de criação retorna `201 Created` com envelope contendo apenas `data`.
 - `GET` de item retorna `200 OK` quando o recurso existe.
 - `GET` de item retorna `204 No Content` quando o recurso não existe e essa ausência é um resultado esperado.
 - `GET` de coleção retorna `200 OK`, mesmo quando `data=[]`.
@@ -19,8 +19,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
 
-from src.configs.settings import Settings, get_settings
-from src.models.users.user_response import UserEnvelopeResponse
+from src.models.users.response.user_response import UserEnvelopeResponse
 from src.models.utils.response_context import build_response_context
 from src.services.users.user_service import UserService
 
@@ -38,7 +37,6 @@ router = APIRouter(tags=["users"])
 async def get_user(
     request: Request,
     user_id: str,
-    settings: Annotated[Settings, Depends(get_settings)],
     service: UserService = Depends(),
 ) -> UserEnvelopeResponse | Response:
     """Consulta a visão pública de um usuário pelo identificador.
@@ -52,7 +50,7 @@ async def get_user(
     if user is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    response_context = await build_response_context(request=request, settings=settings)
+    response_context = await build_response_context(request=request)
     return UserEnvelopeResponse(
         data=user,
         meta=response_context.meta,
