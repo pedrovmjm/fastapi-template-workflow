@@ -1,6 +1,6 @@
 ---
 name: create-pull-request
-description: Cria pull request no GitHub com gh CLI apos validar responsabilidade unica, titulo fiel ao diff, rascunho baseado em template e aprovacao explicita do usuario. Use quando o usuario pedir para abrir PR, criar pull request ou publicar branch apos commits aprovados.
+description: Cria pull request no GitHub com gh CLI apos validar responsabilidade unica, sanitizar autoria de IA no titulo e corpo, titulo fiel ao diff, rascunho baseado em template e aprovacao explicita do usuario. Use quando o usuario pedir para abrir PR, criar pull request ou publicar branch apos commits aprovados.
 ---
 
 # Create Pull Request - Abrir PR com Aprovacao
@@ -40,6 +40,20 @@ Proibido:
 - Qualquer mencao equivalente que atribua autoria ou coautoria a assistentes/ferramentas de IA.
 
 O PR deve descrever escopo, validacoes, riscos e rastreabilidade da mudanca, nao a ferramenta usada para auxiliar.
+
+## Scripts da Skill
+
+| Momento | Script obrigatorio |
+| --- | --- |
+| Imediatamente antes de `gh pr create` | `../conventional-commit/scripts/sanitize-ai-attribution.sh` |
+| Imediatamente apos `gh pr create` | sanitizar body publicado e `gh pr edit` |
+
+O Cursor pode acrescentar `Made with [Cursor](https://cursor.com)` no corpo do PR. Por isso:
+
+1. Sanitize titulo e corpo antes de `gh pr create`.
+2. Apos criar o PR, busque o body publicado, sanitize com `--write` e corrija com `gh pr edit`.
+
+**Execute** o sanitizer antes e depois do PR. So encerre quando o body publicado estiver limpo.
 
 ## Fluxo
 
@@ -84,7 +98,18 @@ O titulo do PR nunca deve usar um scope menor do que o diff. Se a branch altera 
 
 ### 3. Montar rascunho com template
 
-Use `references/pr-body-template.md` como referencia de corpo. Inclua as secoes relevantes e remova secoes vazias ou marcadas como N/A quando nao agregarem valor.
+Use `references/pr-body-template.md` como referencia de corpo. **Nunca abra PR com corpo reduzido.**
+
+Secoes obrigatorias no corpo publicado:
+
+- `## Resumo`
+- `## Contexto`
+- `## Escopo`
+- `## Responsabilidade unica`
+- `## Validacoes` com tabela completa (`Check`, `Status`, `Comando/Detalhes`)
+- `## Checklist`
+
+Secoes opcionais: remova apenas quando forem claramente N/A para o diff, mas **nao omita `## Validacoes`**.
 
 Pontos que devem ser considerados no rascunho:
 
@@ -93,7 +118,8 @@ Pontos que devem ser considerados no rascunho:
 - Sem coautoria, assinatura ou nota de geracao por ferramentas de IA.
 - Rastreabilidade com `.specs/features/<slug>/` quando existir.
 - Impacto em API, contratos `data/meta/links`, errors `errors[]`, settings, env vars, banco, observabilidade e seguranca.
-- Validacoes executadas com comandos concretos.
+- Validacoes executadas com comandos concretos e status real (`PASS`, `FAIL` ou `N/A` com justificativa).
+- A secao `## Validacoes` do PR publicado deve espelhar a tabela do template, nao um resumo parcial.
 - Riscos residuais e follow-ups, quando houver.
 - Como o reviewer deve validar manualmente, se aplicavel.
 
@@ -126,11 +152,14 @@ Pontos que devem ser considerados no rascunho:
 | ... | ... | ... |
 
 ### Validacoes
-| Check | Status |
-|-------|--------|
-| Testes | ... |
-| Lint/type | ... |
-| Revisao de seguranca | ... |
+| Check | Status | Comando/Detalhes |
+|-------|--------|------------------|
+| Testes | PASS/FAIL/N/A | comando executado |
+| Lint | PASS/FAIL/N/A | comando executado |
+| Format | PASS/FAIL/N/A | comando executado |
+| Type check | PASS/FAIL/N/A | comando executado |
+| Build/bootstrap | PASS/FAIL/N/A | comando executado |
+| Sanitizacao commit/PR | PASS/FAIL | `scripts/sanitize-ai-attribution.sh` |
 
 ### PR proposto
 
@@ -144,21 +173,44 @@ Pontos que devem ser considerados no rascunho:
 
 Apos enviar o resumo, **pare**. Nao prossiga ate o usuario responder.
 
-### 5. Criar PR (apos aprovacao)
+### 5. Executar script de sanitizacao (apos aprovacao, antes do PR)
 
 Somente quando o usuario aprovar explicitamente:
+
+1. Grave o corpo aprovado em `/tmp/pr-body.txt`.
+2. **Execute** o script da skill:
+
+```bash
+.github/skills/conventional-commit/scripts/sanitize-ai-attribution.sh \
+  --title "titulo-aprovado" /tmp/pr-body.txt > /tmp/pr-body.sanitized.txt
+```
+
+3. Confirme `APTO_PARA_PUBLICAR=sim` no stderr e exit code `0`.
+4. Separe a primeira linha sanitizada como titulo e o restante como corpo do PR.
+
+### 6. Criar PR
 
 ```bash
 git push -u origin HEAD
 
-gh pr create --base main --head "{branch}" --title "titulo" --body-file /tmp/pr-body.txt
+PR_TITLE="$(head -n 1 /tmp/pr-body.sanitized.txt)"
+tail -n +2 /tmp/pr-body.sanitized.txt > /tmp/pr-body.final.txt
+
+gh pr create --base main --head "{branch}" --title "$PR_TITLE" --body-file /tmp/pr-body.final.txt
+
+PR_NUMBER="$(gh pr view --json number -q .number)"
+gh pr view "$PR_NUMBER" --json body -q .body > /tmp/pr-body.published.txt
+.github/skills/conventional-commit/scripts/sanitize-ai-attribution.sh --write /tmp/pr-body.published.txt
+gh pr edit "$PR_NUMBER" --body-file /tmp/pr-body.published.txt
 ```
 
 Retorne a **URL do PR** ao usuario.
 
-Antes de executar, grave o corpo aprovado em `/tmp/pr-body.txt` ou outro arquivo temporario equivalente. Se a base correta for `master` ou outra branch, ajuste `--base`.
+O passo final com `gh pr edit` remove attribution que o Cursor injeta apos a criacao do PR.
 
-### 6. Revisao pos-criacao (opcional)
+Se o titulo ja estiver separado do corpo, execute o script apenas no arquivo do corpo e sanitize o titulo manualmente com a mesma regra do script. Se a base correta for `master` ou outra branch, ajuste `--base`.
+
+### 7. Revisao pos-criacao (opcional)
 
 Se o usuario quiser revisao multi-persona do PR criado, use `.github/skills/pr-review/SKILL.md` com a URL do PR.
 
@@ -175,11 +227,11 @@ Se o usuario quiser revisao multi-persona do PR criado, use `.github/skills/pr-r
 
 Leia `references/pr-body-template.md` quando precisar montar ou revisar o corpo do PR.
 
-Adapte o template ao tamanho da entrega:
+Adapte o template ao tamanho da entrega, mas **mantenha sempre `## Validacoes` com tabela completa**:
 
-- PR pequeno: manter `Resumo`, `Validacoes`, `Rastreabilidade` e `Riscos`.
+- PR pequeno: manter `Resumo`, `Contexto`, `Escopo`, `Validacoes`, `Checklist`.
 - PR com API/config/banco/seguranca: manter tambem as secoes de impacto especificas.
-- PR de documentacao/skills: manter foco em contexto, arquivos afetados e validacao textual.
+- PR de documentacao/skills: manter foco em contexto, arquivos afetados e validacao textual com comandos reais.
 
 ## Integracao com o Workflow
 
