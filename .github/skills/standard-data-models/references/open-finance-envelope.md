@@ -3,17 +3,25 @@
 Use este guia para respostas inspiradas no padrão Open Finance: previsíveis, navegáveis e explícitas.
 
 Envelopes, listas e paginação não criam domínio ou arquivo próprio. Quando
-pertencem a um contrato de response, ficam no arquivo `*_response.py` do recurso,
-por exemplo `user_response.py`. O nome público do contrato deve continuar
-expressando response, sem codificar `DataWrapper` ou `List`.
+pertencem a um contrato de response, ficam em `src/models/<dominio>/response/*_response.py`.
+O nome público do contrato deve continuar expressando response, sem codificar
+`DataWrapper` ou `List`.
 
-Modelos reutilizáveis de `meta`, `links` e paginação compartilhada ficam em
-`src/models/utils/`. Use essa pasta para contratos comuns entre domínios.
-Rotas `GET` devem montar esses objetos com helper assíncrono compartilhado, por
-exemplo `build_response_context`, para manter URL, versão de API, timezone e
-paginação consistentes.
+Modelos reutilizáveis de `meta`, `links` e helpers de montagem ficam em
+`src/models/utils/`. Rotas `GET` devem montar esses objetos com helper assíncrono
+compartilhado, por exemplo `build_response_context`, para manter URL e paginação
+consistentes.
 
-## Recurso Único
+## Regra por Verbo HTTP
+
+| Verbo | Envelope | `meta` | `links` |
+| --- | --- | --- | --- |
+| `GET` | `data`, `meta`, `links` | Sim, padrão Open Finance | Sim |
+| `POST`, `PUT`, `PATCH` | apenas `data` | Não | Não |
+
+Endpoints operacionais isolados, como health check, não seguem este envelope.
+
+## Recurso Único em `GET`
 
 Use um envelope no arquivo de response do recurso para respostas com um único
 recurso. Não crie arquivos ou classes como `data_wrapper_user_response.py` ou
@@ -27,12 +35,12 @@ from src.models.utils.meta import ResponseMeta
 
 
 class UserEnvelopeResponse(BaseModel):
-    """Envelope de dados para resposta de usuário.
+    """Envelope de leitura para resposta de usuário.
 
     Notes
     -----
     Esta classe pertence ao contrato de response e deve ficar em
-    `user_response.py`, junto do modelo `UserResponse`.
+    `src/models/users/response/user_response.py`, junto do modelo `UserResponse`.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -43,7 +51,7 @@ class UserEnvelopeResponse(BaseModel):
     )
     meta: ResponseMeta = Field(
         ...,
-        description="Metadados públicos da resposta.",
+        description="Metadados de paginação no padrão Open Finance.",
     )
     links: ResponseLinks = Field(
         ...,
@@ -51,13 +59,76 @@ class UserEnvelopeResponse(BaseModel):
     )
 ```
 
+## Mutação em `POST`
+
+Rotas de criação ou alteração retornam apenas o recurso em `data`:
+
+```python
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class UserCreatedResponse(BaseModel):
+    """Envelope de criação sem meta nem links."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    data: UserResponse = Field(
+        ...,
+        description="Usuário criado pela operação.",
+    )
+```
+
+## Meta Open Finance
+
+`meta` contém apenas campos de paginação. Não inclua nome da aplicação, versão,
+timezone ou outros metadados operacionais.
+
+```python
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ResponseMeta(BaseModel):
+    """Descreve metadados de paginação no padrão Open Finance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_records: int | None = Field(
+        None,
+        description="Quantidade total de registros disponíveis; ausente quando a resposta não é paginada.",
+        ge=0,
+        le=1_000_000,
+    )
+    total_pages: int | None = Field(
+        None,
+        description="Quantidade total de páginas disponíveis; ausente quando a resposta não é paginada.",
+        ge=0,
+        le=100_000,
+    )
+    page: int | None = Field(
+        None,
+        description="Página atual solicitada; ausente quando a resposta não é paginada.",
+        ge=1,
+        le=100_000,
+    )
+    page_size: int | None = Field(
+        None,
+        description="Quantidade máxima de itens por página; ausente quando a resposta não é paginada.",
+        ge=1,
+        le=200,
+    )
+```
+
+Em listagens paginadas, os quatro campos devem estar presentes. Em leituras de
+item único, `meta` permanece no envelope, mas os campos de paginação ficam
+ausentes ou `None` e podem ser omitidos com `response_model_exclude_none=True`.
+
 ## Links
 
 ```python
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class Links(BaseModel):
+class ResponseLinks(BaseModel):
     """Representa links navegacionais da resposta."""
 
     model_config = ConfigDict(extra="forbid")
@@ -90,50 +161,13 @@ class Links(BaseModel):
     )
 ```
 
-## Meta de Paginação
-
-```python
-from pydantic import BaseModel, ConfigDict, Field
-
-
-class PaginationMeta(BaseModel):
-    """Descreve a paginação da coleção retornada."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    total_records: int = Field(
-        ...,
-        description="Quantidade total de registros disponíveis.",
-        ge=0,
-        le=1_000_000,
-    )
-    total_pages: int = Field(
-        ...,
-        description="Quantidade total de páginas disponíveis.",
-        ge=0,
-        le=100_000,
-    )
-    page: int = Field(
-        ...,
-        description="Página atual solicitada.",
-        ge=1,
-        le=100_000,
-    )
-    page_size: int = Field(
-        ...,
-        description="Quantidade máxima de itens por página.",
-        ge=1,
-        le=200,
-    )
-```
-
 ## Coleção Paginada
 
 ```python
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.models.utils.links import Links
-from src.models.utils.pagination_meta import PaginationMeta
+from src.models.utils.links import ResponseLinks
+from src.models.utils.meta import ResponseMeta
 
 
 class UserCollectionResponse(BaseModel):
@@ -142,7 +176,7 @@ class UserCollectionResponse(BaseModel):
     Notes
     -----
     Esta classe pertence ao contrato de response e deve ficar em
-    `user_response.py`, junto do modelo `UserResponse`.
+    `src/models/users/response/user_response.py`, junto do modelo `UserResponse`.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -153,22 +187,20 @@ class UserCollectionResponse(BaseModel):
         min_length=0,
         max_length=200,
     )
-    meta: PaginationMeta = Field(
+    meta: ResponseMeta = Field(
         ...,
-        description="Metadados de paginação da coleção.",
+        description="Metadados de paginação da coleção no padrão Open Finance.",
     )
-    links: Links = Field(
+    links: ResponseLinks = Field(
         ...,
         description="Links navegacionais da coleção.",
     )
 ```
 
-
-
 ## Regras de Status HTTP Relacionadas
 
-- `GET` com `200 OK` retorna `data`, `meta` e `links`, mesmo quando a resposta não é paginada.
+- `GET` com `200 OK` retorna `data`, `meta` e `links`.
 - `GET` de item sem dados retorna `204` sem body.
-- `GET` de coleção retorna `200` com `data=[]` quando a coleção está vazia e retornando links e meta válidos.
-- `POST` de criação retorna `201` com envelope de response no arquivo `*_response.py` do recurso.
+- `GET` de coleção retorna `200` com `data=[]` quando a coleção está vazia, mantendo `meta` e `links` válidos.
+- `POST` de criação retorna `201` com envelope contendo apenas `data`.
 - A definição dos códigos HTTP pertence à skill `standard-endpoints`.

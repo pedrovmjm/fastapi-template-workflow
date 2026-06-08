@@ -2605,6 +2605,10 @@ def build_file_templates() -> list[FileTemplate]:
             '"""Modelos do endpoint de health check."""\n',
         ),
         FileTemplate(
+            "src/models/health/response/__init__.py",
+            '"""Contratos de resposta do health check."""\n',
+        ),
+        FileTemplate(
             "src/models/utils/__init__.py",
             '"""Modelos utilitarios compartilhados por contratos HTTP."""\n',
         ),
@@ -2617,46 +2621,10 @@ def build_file_templates() -> list[FileTemplate]:
 
 
             class ResponseMeta(BaseModel):
-                """Representa metadados publicos associados a uma resposta HTTP."""
+                """Representa metadados de paginacao no padrao Open Finance."""
 
                 model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-                app_name: str = Field(
-                    ...,
-                    description="Nome publico da aplicacao.",
-                    min_length=1,
-                    max_length=80,
-                    examples=["$project_name"],
-                )
-                app_version: str = Field(
-                    ...,
-                    description="Versao semantica atual da aplicacao.",
-                    min_length=1,
-                    max_length=32,
-                    examples=["0.1.0"],
-                )
-                api_version: str = Field(
-                    ...,
-                    description="Versao da API identificada para a requisicao.",
-                    min_length=2,
-                    max_length=8,
-                    pattern="^v[0-9]+$",
-                    examples=["$api_version"],
-                )
-                datetime: str = Field(
-                    ...,
-                    description="Data e hora da resposta no timezone configurado da aplicacao.",
-                    min_length=20,
-                    max_length=64,
-                    examples=["2026-05-08T14:25:00-03:00"],
-                )
-                timezone: str = Field(
-                    ...,
-                    description="Timezone IANA usado para gerar o campo `datetime`.",
-                    min_length=1,
-                    max_length=64,
-                    examples=["America/Sao_Paulo"],
-                )
                 total_records: int | None = Field(
                     None,
                     description="Quantidade total de registros disponiveis; ausente quando a resposta nao e paginada.",
@@ -2736,53 +2704,23 @@ def build_file_templates() -> list[FileTemplate]:
         FileTemplate(
             "src/models/utils/response_context.py",
             '''
-            """Monta metadados e links compartilhados por respostas HTTP."""
+            """Monta metadados e links compartilhados por respostas HTTP GET."""
 
             from dataclasses import dataclass
-            from datetime import datetime
             from math import ceil
-            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
             from fastapi import Request
 
-            from src.configs.settings import Settings
             from src.models.utils.links import ResponseLinks
             from src.models.utils.meta import ResponseMeta
 
 
             @dataclass(frozen=True)
             class ResponseContext:
-                """Agrupa metadados e links calculados para uma resposta HTTP."""
+                """Agrupa metadados e links calculados para uma resposta HTTP GET."""
 
                 meta: ResponseMeta
                 links: ResponseLinks
-
-
-            def _current_configured_datetime(settings: Settings) -> str:
-                """Retorna data e hora no timezone configurado.
-
-                Parameters
-                ----------
-                settings : Settings
-                    Configuracoes finais contendo o timezone da aplicacao.
-
-                Returns
-                -------
-                str
-                    Datetime ISO 8601 com offset do timezone configurado.
-
-                Raises
-                ------
-                ZoneInfoNotFoundError
-                    Quando o timezone configurado nao existir no sistema.
-                """
-
-                try:
-                    timezone = ZoneInfo(settings.time.timezone)
-                except ZoneInfoNotFoundError:
-                    raise
-
-                return datetime.now(tz=timezone).isoformat(timespec="seconds")
 
 
             def _resolve_total_pages(total_records: int | None, page_size: int | None) -> int | None:
@@ -2806,20 +2744,17 @@ def build_file_templates() -> list[FileTemplate]:
             async def build_response_context(
                 *,
                 request: Request,
-                settings: Settings,
                 total_records: int | None = None,
                 total_pages: int | None = None,
                 page: int | None = None,
                 page_size: int | None = None,
             ) -> ResponseContext:
-                """Monta metadados e links dinamicos para uma resposta HTTP.
+                """Monta metadados e links dinamicos para uma resposta HTTP GET.
 
                 Parameters
                 ----------
                 request : Request
-                    Requisicao HTTP usada para obter URL e versao de API resolvida.
-                settings : Settings
-                    Configuracoes finais da aplicacao usadas nos metadados publicos.
+                    Requisicao HTTP usada para obter URL e links navegacionais.
                 total_records : int | None
                     Quantidade total de registros quando a resposta for paginada.
                 total_pages : int | None
@@ -2835,11 +2770,6 @@ def build_file_templates() -> list[FileTemplate]:
                     Contexto contendo `meta` e `links` prontos para o envelope de resposta.
                 """
 
-                api_version = getattr(
-                    request.state,
-                    "api_version",
-                    settings.app.default_api_version,
-                )
                 resolved_total_pages = total_pages
                 if resolved_total_pages is None:
                     resolved_total_pages = _resolve_total_pages(
@@ -2866,11 +2796,6 @@ def build_file_templates() -> list[FileTemplate]:
 
                 return ResponseContext(
                     meta=ResponseMeta(
-                        app_name=settings.app.name,
-                        app_version=settings.app.version,
-                        api_version=api_version,
-                        datetime=_current_configured_datetime(settings=settings),
-                        timezone=settings.time.timezone,
                         total_records=total_records,
                         total_pages=resolved_total_pages,
                         page=page,
@@ -2887,20 +2812,27 @@ def build_file_templates() -> list[FileTemplate]:
             ''',
         ),
         FileTemplate(
-            "src/models/health/health_response.py",
+            "src/models/health/response/health_response.py",
             '''
             """Define contratos de resposta do health check."""
 
             from pydantic import BaseModel, ConfigDict, Field
 
-            from src.models.utils.links import ResponseLinks
-            from src.models.utils.meta import ResponseMeta
-
 
             class HealthResponse(BaseModel):
-                """Representa dados publicos de saude da aplicacao."""
+                """Representa dados publicos de saude da aplicacao.
 
-                model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+                Notes
+                -----
+                Health check e um endpoint operacional isolado. Ele nao usa
+                envelope Open Finance com `data`, `meta` nem `links`.
+                """
+
+                model_config = ConfigDict(
+                    extra="forbid",
+                    str_strip_whitespace=True,
+                    json_schema_extra={"examples": [{"status": "ok"}]},
+                )
 
                 status: str = Field(
                     ...,
@@ -2909,25 +2841,6 @@ def build_file_templates() -> list[FileTemplate]:
                     max_length=2,
                     pattern="^ok$",
                     examples=["ok"],
-                )
-
-
-            class HealthEnvelopeResponse(BaseModel):
-                """Envelope publico para resposta do health check."""
-
-                model_config = ConfigDict(extra="forbid")
-
-                data: HealthResponse = Field(
-                    ...,
-                    description="Dados publicos de saude da aplicacao.",
-                )
-                meta: ResponseMeta = Field(
-                    ...,
-                    description="Metadados publicos da resposta.",
-                )
-                links: ResponseLinks = Field(
-                    ...,
-                    description="Links publicos relacionados a resposta.",
                 )
             ''',
         ),
@@ -5825,17 +5738,11 @@ def build_file_templates() -> list[FileTemplate]:
             """Expoe endpoint publico de health check."""
 
             import logging
-            from typing import Annotated
 
-            from fastapi import APIRouter, Depends, Request, status
+            from fastapi import APIRouter, Request, status
             from opentelemetry import trace
 
-            from src.configs.settings import Settings, get_settings
-            from src.models.health.health_response import (
-                HealthEnvelopeResponse,
-                HealthResponse,
-            )
-            from src.models.utils.response_context import build_response_context
+            from src.models.health.response.health_response import HealthResponse
 
 
             router = APIRouter(tags=["health"])
@@ -5845,36 +5752,29 @@ def build_file_templates() -> list[FileTemplate]:
 
             @router.get(
                 "/health",
-                response_model=HealthEnvelopeResponse,
-                response_model_exclude_none=True,
+                response_model=HealthResponse,
                 status_code=status.HTTP_200_OK,
                 summary="Verifica a saude da aplicacao.",
-                description="Retorna metadados publicos para probes e diagnostico basico.",
+                description="Retorna status operacional minimo para probes de infraestrutura.",
                 responses={200: {"description": "Aplicacao saudavel."}},
             )
-            async def get_health(
-                request: Request,
-                settings: Annotated[Settings, Depends(get_settings)],
-            ) -> HealthEnvelopeResponse:
+            async def get_health(request: Request) -> HealthResponse:
                 """Retorna a disponibilidade publica minima da aplicacao.
 
-                Este endpoint existe para probes de infraestrutura, diagnostico operacional
-                basico e validacao da versao de API resolvida para a requisicao. Ele nao
-                executa regras de negocio nem valida dependencias externas profundas; a
-                intencao de negocio e responder rapidamente se o processo HTTP esta ativo e
-                qual contexto publico da aplicacao gerou a resposta.
+                Este endpoint existe para probes de infraestrutura e diagnostico operacional
+                basico. Ele nao executa regras de negocio nem valida dependencias externas
+                profundas; a intencao e responder rapidamente se o processo HTTP esta ativo.
+                Por ser um endpoint operacional isolado, ele nao usa envelope Open Finance.
 
                 Parameters
                 ----------
                 request : Request
-                    Requisicao HTTP usada para obter a versao resolvida pelo middleware.
-                settings : Settings
-                    Configuracoes finais injetadas pelo FastAPI.
+                    Requisicao HTTP usada para obter correlation id e contexto de tracing.
 
                 Returns
                 -------
-                HealthEnvelopeResponse
-                    Envelope com status operacional e versoes publicas.
+                HealthResponse
+                    Status operacional publico da aplicacao.
                 """
 
                 correlation_id = getattr(request.state, "correlation_id", None)
@@ -5892,10 +5792,6 @@ def build_file_templates() -> list[FileTemplate]:
                             "correlation_id": correlation_id,
                         },
                     )
-                    response_context = await build_response_context(
-                        request=request,
-                        settings=settings,
-                    )
                     span.set_attribute("app.result", "ok")
                     logger.info(
                         "Health check respondido com sucesso.",
@@ -5906,13 +5802,7 @@ def build_file_templates() -> list[FileTemplate]:
                             "correlation_id": correlation_id,
                         },
                     )
-                    return HealthEnvelopeResponse(
-                        data=HealthResponse(
-                            status="ok",
-                        ),
-                        meta=response_context.meta,
-                        links=response_context.links,
-                    )
+                    return HealthResponse(status="ok")
             ''',
         ),
         FileTemplate(

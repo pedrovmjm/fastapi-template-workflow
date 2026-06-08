@@ -33,13 +33,17 @@ Eles não devem ser o mesmo modelo.
 src/
 └── models/
     └── users/
-        ├── user_create_request.py
-        ├── user_response.py
-        └── persistence/
-            └── user_record.py
+        ├── requests/
+        │   └── user_create_request.py
+        ├── response/
+        │   └── user__create_response.py
+        ├── persistence/
+        │   └── user_record.py
+        └── commons/
+            └── user_status.py
 ```
 
-Use a raiz do domínio para contratos públicos HTTP e `persistence` para modelos internos de armazenamento quando o projeto precisar desse tipo de separação.
+Use `persistence/` para modelos internos de armazenamento e `commons/` para tipos compartilhados do domínio que não são contratos HTTP.
 
 ## Exemplo de Modelo de Persistência
 
@@ -67,8 +71,8 @@ class UserRecord(BaseModel):
 ## Exemplo de Conversão Para Response
 
 ```python
-from src.models.users.user_response import UserResponse
 from src.models.users.persistence.user_record import UserRecord
+from src.models.users.response.user_response import UserResponse
 
 
 def to_user_response(record: UserRecord) -> UserResponse:
@@ -80,8 +84,9 @@ def to_user_response(record: UserRecord) -> UserResponse:
 
 ## Checklist
 
+- [ ] O modelo de banco está em `src/models/<dominio>/persistence/`.
 - [ ] O modelo de banco é interno e não aparece como `response_model`.
 - [ ] Campos sensíveis ou técnicos ficam fora dos modelos de response.
-- [ ] Exemplos OpenAPI ficam nos modelos `*_request.py` e `*_response.py`.
+- [ ] Exemplos OpenAPI ficam nos modelos de `requests/` e `response/`.
 - [ ] Conversões para contrato público são explícitas.
 - [ ] Constraints, índices e tipos específicos do banco seguem `standard-database`.

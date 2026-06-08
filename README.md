@@ -117,6 +117,7 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 │   ├── models/
 │   │   ├── auth/
 │   │   ├── health/
+│   │   │   └── response/
 │   │   └── utils/
 │   ├── observability/
 │   │   ├── correlation.py
@@ -144,8 +145,9 @@ O bootstrap gera uma aplicacao FastAPI com esta base:
 - `src/configs/values_domains/`: modelos Pydantic separados por dominio de configuracao.
 - `src/middlewares/api_version.py`: resolucao da versao da API por path (`/api-internal/vN`), com header como complemento.
 - `src/models/auth/`: contratos internos para usuario autenticado, grupos e superior direto.
-- `src/models/utils/`: contratos compartilhados para `meta` e `links` em respostas HTTP, com helper assíncrono para montar o contexto dinâmico de respostas `GET`.
-- `src/routes/health/`: endpoint `/api-internal/v1/health` com envelope `data`, `meta` e `links`.
+- `src/models/<dominio>/{requests,response,persistence,commons}/`: contratos Pydantic organizados por intenção dentro de cada domínio.
+- `src/models/utils/`: contratos compartilhados para `meta` e `links` em respostas `GET`, com helper assíncrono para montar o contexto dinâmico.
+- `src/routes/health/`: endpoint operacional isolado `/api-internal/v1/health` que retorna apenas `{"status": "ok"}`.
 - `src/security/`: validacao JWT Azure AD, dependencies FastAPI e helpers de scopes, roles e grupos.
 - `src/observability/`: logging estruturado e setup de tracing OpenTelemetry.
 - `src/repository/microsoft_graph/`: chamadas tecnicas ao Microsoft Graph para perfil, manager, grupos diretos e foto.
@@ -393,7 +395,7 @@ Exemplos:
 feat(auth): adicionar bootstrap de Azure AD
 fix(cors): ajustar origens permitidas
 docs(workflow): documentar ciclo de desenvolvimento
-test(health): cobrir envelope do endpoint de health
+test(health): cobrir resposta direta do endpoint de health
 ```
 
 Quando a entrega tiver responsabilidades diferentes, prefira commits incrementais. Exemplo: um commit para configs, outro para services/routes e outro para testes ou docs. O commit so acontece depois de resposta explicita como `sim`, `pode commitar` ou `aprovado`.

@@ -45,7 +45,7 @@ Use este template como referencia para montar o corpo do PR. Remova secoes que n
 | Rotas/endpoints | Sim/Nao | `src/routes/...` |
 | Services/domain | Sim/Nao | `src/services/...` |
 | Repositories/persistencia | Sim/Nao | `src/repository/...` |
-| Modelos/contratos | Sim/Nao | `src/models/...`; envelopes `data`, `meta`, `links` |
+| Modelos/contratos | Sim/Nao | `src/models/<dominio>/{requests,response,persistence,commons}/`; `GET` com `data/meta/links`; mutacoes com apenas `data` |
 | Configuracoes | Sim/Nao | `.env.example`, `src/configs/settings.py`, `src/configs/values_domains/...` |
 | Erros publicos | Sim/Nao | contrato `errors[]` |
 | Logs/traces | Sim/Nao | eventos, correlation ID, atributos seguros |
@@ -90,6 +90,7 @@ Use este template como referencia para montar o corpo do PR. Remova secoes que n
 - [ ] Nenhum secret, token, PII ou dado sensivel foi adicionado ao diff.
 - [ ] Logs/traces nao incluem payloads sensiveis.
 - [ ] Endpoints `GET` com body mantem envelope `data`, `meta`, `links`.
+- [ ] Endpoints `POST`/`PUT`/`PATCH` retornam apenas `data`, sem `meta` nem `links`.
 - [ ] Erros publicos seguem contrato `errors[]`.
 - [ ] O escopo esta limitado ao objetivo do PR.
 

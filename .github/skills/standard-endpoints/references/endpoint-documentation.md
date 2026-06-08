@@ -13,6 +13,7 @@ Use este guia para endpoints com OpenAPI rico: request, response, erro e exemplo
 - Exemplos de erro devem seguir `standard-errors`.
 - A docstring explica intenção de negócio, contrato do endpoint e limites deliberados da operação; ela não implementa regra de negócio.
 - Todo `GET` documentado com body deve expor `data`, `meta` e `links`; a montagem dinâmica desses blocos pertence ao helper assíncrono compartilhado.
+- `POST`, `PUT` e `PATCH` documentados com body devem expor apenas `data`, sem `meta` nem `links`.
 
 ## Exemplo
 
@@ -20,8 +21,8 @@ Use este guia para endpoints com OpenAPI rico: request, response, erro e exemplo
 from fastapi import APIRouter, Depends, status
 
 from src.models.common.error_response import ErrorResponse
-from src.models.users.user_create_request import UserCreateRequest
-from src.models.users.user_response import UserEnvelopeResponse
+from src.models.users.requests.user_create_request import UserCreateRequest
+from src.models.users.response.user_response import UserCreatedResponse
 from src.services.users.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -29,14 +30,14 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.post(
     "",
-    response_model=UserEnvelopeResponse,
+    response_model=UserCreatedResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Cria um usuário.",
     description="Cria um usuário e retorna seus dados públicos.",
     responses={
         201: {
             "description": "Usuário criado com sucesso.",
-            "model": UserEnvelopeResponse,
+            "model": UserCreatedResponse,
         },
         409: {
             "description": "Usuário já existe.",
@@ -60,12 +61,12 @@ router = APIRouter(prefix="/users", tags=["users"])
 async def create_user(
     payload: UserCreateRequest,
     service: UserService = Depends(),
-) -> UserEnvelopeResponse:
+) -> UserCreatedResponse:
     """Cria um usuário ativo a partir dos dados públicos recebidos.
 
     Este endpoint inicia o ciclo de vida de uma conta de usuário no domínio da
     aplicação. A rota apenas recebe o contrato HTTP, delega a operação ao
-    service e devolve o envelope público criado.
+    service e devolve apenas o recurso criado em `data`.
 
     Parameters
     ----------
@@ -76,10 +77,10 @@ async def create_user(
 
     Returns
     -------
-    UserEnvelopeResponse
-        Envelope contendo o usuário criado.
+    UserCreatedResponse
+        Envelope contendo apenas o usuário criado.
     """
 
     user = await service.create_user(payload=payload)
-    return UserEnvelopeResponse(data=user)
+    return UserCreatedResponse(data=user)
 ```

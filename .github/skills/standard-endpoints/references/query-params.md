@@ -12,7 +12,7 @@ Use query params tipados, limitados e documentados.
 - Filtros string devem ter `min_length` e `max_length` quando possível.
 - Ordenação deve ter vocabulário fechado.
 - Listagens devem retornar contrato definido em `standard-data-models` com `data`, `meta` e `links`.
-- `meta` e `links` devem ser montados por helper assíncrono compartilhado, usando `Request`, `Settings` e dados de paginação.
+- `meta` e `links` devem ser montados por helper assíncrono compartilhado, usando `Request` e dados de paginação.
 
 ## Exemplo
 
@@ -21,8 +21,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from src.configs.settings import Settings, get_settings
-from src.models.users.user_response import UserCollectionResponse
+from src.models.users.response.user_response import UserCollectionResponse
 from src.models.utils.response_context import build_response_context
 from src.services.users.user_service import UserService
 
@@ -32,7 +31,6 @@ router = APIRouter(tags=["users"])
 @router.get("/users", response_model=UserCollectionResponse)
 async def list_users(
     request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
     page: Annotated[int, Query(ge=1, le=100_000, description="Página solicitada.")] = 1,
     page_size: Annotated[
         int,
@@ -62,7 +60,6 @@ async def list_users(
     )
     response_context = await build_response_context(
         request=request,
-        settings=settings,
         total_records=users_page.total_records,
         page=page,
         page_size=page_size,
